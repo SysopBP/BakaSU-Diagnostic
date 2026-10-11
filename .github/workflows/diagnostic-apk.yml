@@ -1,4 +1,4 @@
-name: Build BakaSU v3.1 Native Payload Audit
+name: Build BakaSU v3.2 Repacked Debug APK
 on:
   push:
     paths:
@@ -7,57 +7,66 @@ on:
 permissions:
   contents: read
 jobs:
-  baseline:
+  repacked:
     runs-on: ubuntu-latest
-    timeout-minutes: 90
+    timeout-minutes: 120
     steps:
       - uses: actions/checkout@v4
-      - name: Checkout BakaSU v4.2.0-rc3
+      - name: Checkout pinned BakaSU release
         run: git clone --depth 1 --branch v4.2.0-rc3 https://github.com/Baka-SU/BakaSU.git upstream
       - uses: actions/setup-java@v4
         with:
           distribution: temurin
           java-version: '21'
-      - name: Accept Android SDK licenses
-        run: |
-          yes | "$ANDROID_HOME/cmdline-tools/latest/bin/sdkmanager" --licenses > /dev/null || test "${PIPESTATUS[1]}" -eq 0
       - uses: gradle/actions/setup-gradle@v4
-      - name: Audit daemon sources and native packaging configuration
+      - uses: dtolnay/rust-toolchain@nightly
+        with:
+          targets: aarch64-linux-android
+          components: rust-src
+      - name: Install cargo-ndk
+        run: cargo install cargo-ndk --locked
+      - name: Build ARM64 ksud from matching upstream source
+        working-directory: upstream
         run: |
-          mkdir -p audit
-          {
-            echo '=== Upstream revision ==='
-            git -C upstream rev-parse HEAD
-            echo '=== libksud and KsuCli references ==='
-            grep -R -n -E 'getKsuDaemonPath|libksud.so|jniLibs|extractNativeLibs' upstream/manager/app/src upstream/manager/app/build.gradle* 2>/dev/null | head -120 || true
-            echo '=== Candidate daemon payloads ==='
-            find upstream -type f \( -name 'libksud.so' -o -name 'ksud' \) -printf '%p %s bytes\n' | head -80
-          } | tee audit/native-payload-source.txt
-      - name: Assemble debug APK
+          set -euo pipefail
+          clang --target=aarch64-linux-gnu -c -nostdlib -o userspace/ksud/.lkm_image_bootstrap.o userspace/ksud/src/lkm_image_bootstrap.S
+          cd userspace/ksud
+          cargo ndk b -P 26 -t aarch64-linux-android -r -Z build-std-features="optimize_for_size" -Z trim-paths
+          test -s target/aarch64-linux-android/release/ksud
+          file target/aarch64-linux-android/release/ksud
+      - name: Build manager APK
         working-directory: upstream/manager
         run: |
           chmod +x gradlew
           ./gradlew :app:assembleDebug --stacktrace --no-daemon
-      - name: Verify APK contains ARM64 libksud
+      - name: Repack ARM64 daemon using upstream repacker
+        working-directory: upstream
         run: |
           set -euo pipefail
-          APK=$(find upstream/manager/app/build/outputs/apk/debug -name '*.apk' -type f | head -1)
-          test -n "$APK"
-          unzip -l "$APK" | tee audit/apk-contents.txt
-          if ! unzip -Z1 "$APK" | grep -qx 'lib/arm64-v8a/libksud.so'; then
-            echo 'ERROR: arm64 libksud.so is missing from APK. Do not install this build.' | tee audit/native-payload-failure.txt
-            exit 1
-          fi
-          echo 'PASS: ARM64 libksud.so bundled' | tee audit/native-payload-pass.txt
+          mkdir -p target/aarch64-linux-android/release
+          cp userspace/ksud/target/aarch64-linux-android/release/ksud target/aarch64-linux-android/release/ksud
+          keytool -genkeypair -keystore diagnostic.jks -alias diagnostic -storepass android -keypass android -keyalg RSA -keysize 2048 -validity 3650 -dname 'CN=BakaSU Diagnostic Debug'
+          python3 repack_apk_multi.py repack -b debug -t release -a arm64-v8a -K diagnostic.jks -A diagnostic -P android -S android --strip
+      - name: Validate repacked APK
+        run: |
+          set -euo pipefail
+          mkdir -p audit
+          find upstream/dist -type f -name '*.apk' -print | tee audit/apk-paths.txt
+          APK=$(find upstream/dist -type f -name '*.apk' | head -1)
+          test -s "$APK"
+          unzip -Z1 "$APK" | tee audit/apk-contents.txt
+          unzip -Z1 "$APK" | grep -qx 'lib/arm64-v8a/libksud.so'
+          unzip -p "$APK" lib/arm64-v8a/libksud.so | head -c 4 | od -An -tx1 | tee audit/daemon-header.txt
+          "$ANDROID_HOME/build-tools/$(ls "$ANDROID_HOME/build-tools" | sort -V | tail -1)/apksigner" verify --verbose "$APK" | tee audit/signature.txt
+          sha256sum "$APK" | tee audit/sha256.txt
       - uses: actions/upload-artifact@v4
         if: always()
         with:
-          name: BakaSU-v3.1-Native-Audit
+          name: BakaSU-v3.2-Build-Audit
           path: audit/
-          if-no-files-found: warn
       - uses: actions/upload-artifact@v4
         if: success()
         with:
-          name: BakaSU-v3.1-Verified-Debug-APK
-          path: upstream/manager/app/build/outputs/apk/debug/*.apk
+          name: BakaSU-v3.2-Repacked-ARM64-Debug-APK
+          path: upstream/dist/*.apk
           if-no-files-found: error
