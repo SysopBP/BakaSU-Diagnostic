@@ -1,4 +1,4 @@
-name: Build BakaSU v3.2 Repacked Debug APK
+name: Build BakaSU v3.3 Repacked Debug APK
 on:
   push:
     paths:
@@ -34,6 +34,26 @@ jobs:
           cargo ndk b -P 26 -t aarch64-linux-android -r -Z build-std-features="optimize_for_size" -Z trim-paths
           test -s target/aarch64-linux-android/release/ksud
           file target/aarch64-linux-android/release/ksud
+      - name: Add read-only driver compatibility diagnostics
+        working-directory: upstream
+        run: |
+          python3 - <<'PY'
+          from pathlib import Path
+          p = Path('manager/app/src/main/java/com/resukisu/resukisu/ui/viewmodel/HomeViewModel.kt')
+          s = p.read_text()
+          s = s.replace('import androidx.lifecycle.ViewModel', 'import android.util.Log\nimport com.resukisu.resukisu.Natives\nimport androidx.lifecycle.ViewModel', 1)
+          anchor = '                    val kernelStatus = runCatching { getKernelStatus() }'
+          assert s.count(anchor) == 1, 'Upstream HomeViewModel changed'
+          diag = '''                    runCatching {
+                          val manager = Natives.isManager
+                          val driverVersion = Natives.version
+                          val minimum = Natives.MINIMAL_SUPPORTED_KERNEL
+                          Log.i("BakaSU-COMPAT", "managerAuthorized=$manager driverVersion=$driverVersion minimumSupported=$minimum driverBelowMinimum=${driverVersion in 0 until minimum}")
+                      }.onFailure { Log.e("BakaSU-COMPAT", "Native driver query failed", it) }
+'''
+          s = s.replace(anchor, diag + anchor, 1)
+          p.write_text(s)
+          PY
       - name: Build manager APK
         working-directory: upstream/manager
         run: |
@@ -62,11 +82,11 @@ jobs:
       - uses: actions/upload-artifact@v4
         if: always()
         with:
-          name: BakaSU-v3.2-Build-Audit
+          name: BakaSU-v3.3-Build-Audit
           path: audit/
       - uses: actions/upload-artifact@v4
         if: success()
         with:
-          name: BakaSU-v3.2-Repacked-ARM64-Debug-APK
+          name: BakaSU-v3.3-Repacked-ARM64-Debug-APK
           path: upstream/dist/*.apk
           if-no-files-found: error
