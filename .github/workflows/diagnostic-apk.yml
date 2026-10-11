@@ -44,13 +44,12 @@ jobs:
           s = s.replace('import androidx.lifecycle.ViewModel', 'import android.util.Log\nimport com.resukisu.resukisu.Natives\nimport androidx.lifecycle.ViewModel', 1)
           anchor = '                    val kernelStatus = runCatching { getKernelStatus() }'
           assert s.count(anchor) == 1, 'Upstream HomeViewModel changed'
-          diag = '''                    runCatching {
-                          val manager = Natives.isManager
-                          val driverVersion = Natives.version
-                          val minimum = Natives.MINIMAL_SUPPORTED_KERNEL
-                          Log.i("BakaSU-COMPAT", "managerAuthorized=$manager driverVersion=$driverVersion minimumSupported=$minimum driverBelowMinimum=${driverVersion in 0 until minimum}")
-                      }.onFailure { Log.e("BakaSU-COMPAT", "Native driver query failed", it) }
-'''
+          diag = ('                    runCatching {\n'
+                  '                        val manager = Natives.isManager\n'
+                  '                        val driverVersion = Natives.version\n'
+                  '                        val minimum = Natives.MINIMAL_SUPPORTED_KERNEL\n'
+                  '                        Log.i("BakaSU-COMPAT", "managerAuthorized=$manager driverVersion=$driverVersion minimumSupported=$minimum driverBelowMinimum=${driverVersion in 0 until minimum}")\n'
+                  '                    }.onFailure { Log.e("BakaSU-COMPAT", "Native driver query failed", it) }\n')
           s = s.replace(anchor, diag + anchor, 1)
           p.write_text(s)
           PY
