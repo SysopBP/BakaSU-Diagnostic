@@ -1,4 +1,4 @@
-name: Build BakaSU Diagnostic APK
+name: Build BakaSU Diagnostic v2 APK
 on:
   push:
     paths:
@@ -15,7 +15,7 @@ jobs:
       - uses: actions/checkout@v4
       - name: Checkout BakaSU v4.0.0
         run: git clone --depth 1 --branch v4.0.0 https://github.com/Baka-SU/BakaSU.git upstream
-      - name: Apply diagnostic patch
+      - name: Apply diagnostic v2 patch
         run: |
           cp scripts/apply-diagnostics.py upstream/apply-diagnostics.py
           cd upstream
@@ -40,6 +40,6 @@ jobs:
           ./gradlew :app:assembleDebug --stacktrace --no-daemon
       - uses: actions/upload-artifact@v4
         with:
-          name: BakaSU-4.0.0-Diagnostic-APK
+          name: BakaSU-Diagnostic-v2-APK
           path: upstream/manager/app/build/outputs/apk/debug/*.apk
           if-no-files-found: error
