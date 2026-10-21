@@ -77,6 +77,14 @@ icon = """<?xml version="1.0" encoding="utf-8"?>
 for name in ('ic_launcher', 'ic_launcher_round', 'ic_launcher_alt', 'ic_launcher_alt_round'):
     (res / 'mipmap' / (name + '.xml')).write_text(icon)
 
+# Modified by SysopBP on 2026-10-21: ship only the replacement fox artwork.
+# The inherited anime launcher artwork has separate redistribution restrictions.
+# Remove unused drawable variants from both the APK resources and source bundle.
+for name in ('ic_launcher_foreground.xml', 'ic_launcher_foreground_alt.xml',
+             'ic_launcher_monochrome.xml', 'ic_launcher_monochrome_alt.xml'):
+    (res / 'drawable' / name).unlink(missing_ok=True)
+copyfile(asset_dir / 'kitsu_fox.png', Path('manager/app/src/main/ic_launcher-playstore.png'))
+
 # Keep all locales consistent where inherited text describes this fork's branding.
 import re
 branding_strings = {
