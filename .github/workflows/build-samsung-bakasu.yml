@@ -15,6 +15,7 @@ defaults:
     shell: bash
 env:
   BAKASU_REF: 239e1e8871b8fcd51a6e5b3002e0ba522fdd99fb
+  KSU_PACKAGE_NAME: app.kitsusu.manager
   KEYSTORE_ALIAS: fragx
   KEYSTORE_PASS: android
 jobs:
@@ -193,11 +194,14 @@ jobs:
           AAPT="$ANDROID_HOME/build-tools/$(ls "$ANDROID_HOME/build-tools" | sort -V | tail -1)/aapt"
           "$AAPT" dump badging "$APK" > /tmp/badging.txt
           grep -x "application-label:'KitsuSU'" /tmp/badging.txt
+          grep -q "^package: name='app.kitsusu.manager' " /tmp/badging.txt
           grep -q 'application-debuggable' /tmp/badging.txt
           unzip -Z1 "$APK" > /tmp/apk-files.txt
           grep -x 'lib/arm64-v8a/libksud.so' /tmp/apk-files.txt
           unzip -p "$APK" lib/arm64-v8a/libksud.so > /tmp/libksud.so
           cmp ksud-bin/ksud /tmp/libksud.so
+          strings /tmp/libksud.so > /tmp/daemon-strings.txt
+          grep -Fq 'app.kitsusu.manager' /tmp/daemon-strings.txt
           SIGNER="$ANDROID_HOME/build-tools/$(ls "$ANDROID_HOME/build-tools" | sort -V | tail -1)/apksigner"
           "$SIGNER" verify --verbose --print-certs "$APK" > /tmp/signature.txt
           grep -i "${{ needs.prep.outputs.cert_hash }}" /tmp/signature.txt

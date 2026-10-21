@@ -1,5 +1,5 @@
 #!/usr/bin/env python3
-"""Brand the pinned Samsung manager without changing its package or driver checks."""
+"""Brand and relocate the pinned Samsung manager, preserving driver signature checks."""
 from pathlib import Path
 
 changes = {}
@@ -42,7 +42,7 @@ edit(usecase, 'import com.resukisu.resukisu.data.update.ManagerUpdateRepository'
      'import com.resukisu.resukisu.BuildConfig\nimport com.resukisu.resukisu.data.update.ManagerUpdateRepository')
 edit(usecase, '        when (channel) {',
      '        if (BuildConfig.SAMSUNG_BUILD) null else when (channel) {')
-# Product-facing branding; package IDs, native metadata, and credits stay intact.
+# Product-facing branding; native version metadata and credits stay intact.
 base = 'manager/app/src/main/java/com/resukisu/resukisu/'
 edit(base + 'data/logging/BugreportDataSource.kt',
      'pw.println("ReSukiSU: $ksuKernelFull")',
@@ -91,3 +91,30 @@ for strings in res.glob('values*/strings.xml'):
         content = re.sub(pattern, lambda match: match[1] + replacement + match[2],
                          content, flags=re.DOTALL)
     strings.write_text(content)
+
+# Relocate the entire app namespace together: Java/Kotlin, R/BuildConfig,
+# manifest components/actions, JNI exports/class descriptors, and keep rules.
+old_package, new_package = 'com.resukisu.resukisu', 'app.kitsusu.manager'
+old_path, new_path = old_package.replace('.', '/'), new_package.replace('.', '/')
+old_jni, new_jni = old_package.replace('.', '_'), new_package.replace('.', '_')
+source_suffixes = {'.kt', '.kts', '.java', '.xml', '.pro', '.c', '.cpp', '.h', '.properties'}
+for source in Path('manager').rglob('*'):
+    if source.is_file() and source.suffix in source_suffixes:
+        content = source.read_text()
+        updated = content.replace(old_package, new_package).replace(old_path, new_path).replace(old_jni, new_jni)
+        if updated != content:
+            source.write_text(updated)
+old_source = Path('manager/app/src/main/java') / old_path
+new_source = Path('manager/app/src/main/java') / new_path
+if not old_source.is_dir() or new_source.exists():
+    raise SystemExit('Unexpected manager namespace layout')
+new_source.parent.mkdir(parents=True, exist_ok=True)
+old_source.rename(new_source)
+# Keep daemon default package and explicit CLI defaults aligned with the APK.
+for name in ('userspace/ksud/build.rs', 'userspace/ksud/src/android/cli.rs'):
+    source = Path(name)
+    content = source.read_text()
+    if old_package not in content:
+        raise SystemExit(f'{source}: missing package default anchor')
+    source.write_text(content.replace(old_package, new_package))
+print(f'manager namespace and daemon defaults: {new_package}')
