@@ -1,4 +1,4 @@
-name: Build Samsung-patched BakaSU (FragX-compatible)
+name: Build KitsuSU for Samsung (FragX-compatible)
 on:
   push:
     branches: [main, 'feat/samsung-jailbreak']
@@ -136,11 +136,11 @@ jobs:
           mkdir -p source-bundle
           cp -a fork/vendor fork/scripts fork/.github source-bundle/
           git -C upstream rev-parse HEAD > source-bundle/BAKASU_COMMIT.txt
-          tar --exclude=.git --exclude=target --exclude=build --exclude=.gradle -czf BakaSU-samsung-source.tar.gz upstream source-bundle
+          tar --exclude=.git --exclude=target --exclude=build --exclude=.gradle -czf KitsuSU-samsung-source.tar.gz upstream source-bundle
       - uses: actions/upload-artifact@v4
         with:
-          name: BakaSU-samsung-source
-          path: BakaSU-samsung-source.tar.gz
+          name: KitsuSU-samsung-source
+          path: KitsuSU-samsung-source.tar.gz
       - uses: actions/upload-artifact@v4
         with:
           name: ksud
@@ -192,7 +192,7 @@ jobs:
           test -s "$APK"
           AAPT="$ANDROID_HOME/build-tools/$(ls "$ANDROID_HOME/build-tools" | sort -V | tail -1)/aapt"
           "$AAPT" dump badging "$APK" > /tmp/badging.txt
-          grep -x "application-label:'BakaSU'" /tmp/badging.txt
+          grep -x "application-label:'KitsuSU'" /tmp/badging.txt
           grep -q 'application-debuggable' /tmp/badging.txt
           unzip -Z1 "$APK" > /tmp/apk-files.txt
           grep -x 'lib/arm64-v8a/libksud.so' /tmp/apk-files.txt
@@ -201,12 +201,12 @@ jobs:
           SIGNER="$ANDROID_HOME/build-tools/$(ls "$ANDROID_HOME/build-tools" | sort -V | tail -1)/apksigner"
           "$SIGNER" verify --verbose --print-certs "$APK" > /tmp/signature.txt
           grep -i "${{ needs.prep.outputs.cert_hash }}" /tmp/signature.txt
-          cp "$APK" BakaSU-samsung-arm64.apk
-          sha256sum BakaSU-samsung-arm64.apk > BakaSU-samsung-arm64.apk.sha256
+          cp "$APK" KitsuSU-samsung-arm64.apk
+          sha256sum KitsuSU-samsung-arm64.apk > KitsuSU-samsung-arm64.apk.sha256
       - uses: actions/upload-artifact@v4
         with:
-          name: BakaSU-samsung-arm64
+          name: KitsuSU-samsung-arm64
           path: |
-            BakaSU-samsung-arm64.apk
-            BakaSU-samsung-arm64.apk.sha256
+            KitsuSU-samsung-arm64.apk
+            KitsuSU-samsung-arm64.apk.sha256
           if-no-files-found: error
