@@ -5,6 +5,7 @@ on:
     paths:
       - 'scripts/apply-samsung-jailbreak.py'
       - 'scripts/apply-samsung-manager.py'
+      - 'scripts/verify-manager-artwork.py'
       - 'vendor/**'
       - '.github/workflows/build-samsung-bakasu.yml'
   workflow_dispatch:
@@ -139,10 +140,13 @@ jobs:
           test -s target/aarch64-linux-android/release/ksud
       - name: Bundle corresponding modified source and licenses
         run: |
+          set -euo pipefail
+          python3 fork/scripts/verify-manager-artwork.py --source upstream
           mkdir -p source-bundle
           cp -a fork/vendor fork/scripts fork/.github source-bundle/
           git -C upstream rev-parse HEAD > source-bundle/BAKASU_COMMIT.txt
           tar --exclude=.git --exclude=target --exclude=build --exclude=.gradle -czf KitsuSU-samsung-source.tar.gz upstream source-bundle
+          python3 fork/scripts/verify-manager-artwork.py --archive KitsuSU-samsung-source.tar.gz
       - uses: actions/upload-artifact@v4
         with:
           name: KitsuSU-samsung-source
@@ -196,6 +200,7 @@ jobs:
           set -euo pipefail
           APK=$(find upstream/dist -type f -name '*.apk' -print -quit)
           test -s "$APK"
+          python3 fork/scripts/verify-manager-artwork.py --source upstream --archive "$APK"
           AAPT="$ANDROID_HOME/build-tools/$(ls "$ANDROID_HOME/build-tools" | sort -V | tail -1)/aapt"
           "$AAPT" dump badging "$APK" > /tmp/badging.txt
           grep -x "application-label:'KitsuSU'" /tmp/badging.txt

@@ -56,6 +56,9 @@ edit(base + 'ui/screen/about/About.kt',
 edit(base + 'ui/screen/about/About.kt',
      'https://t.me/ReSukiSU',
      'https://github.com/SysopBP/BakaSU-Diagnostic/issues')
+edit(base + 'ui/screen/main/ModulePage.kt',
+     'R.drawable.ic_launcher_foreground',
+     'R.drawable.kitsu_fox')
 for path, text in changes.items():
     path.write_text(text)
     print(f'patched {path}')
@@ -84,6 +87,17 @@ for name in ('ic_launcher_foreground.xml', 'ic_launcher_foreground_alt.xml',
              'ic_launcher_monochrome.xml', 'ic_launcher_monochrome_alt.xml'):
     (res / 'drawable' / name).unlink(missing_ok=True)
 copyfile(asset_dir / 'kitsu_fox.png', Path('manager/app/src/main/ic_launcher-playstore.png'))
+
+# Source archives are distributions too: remove inherited documentation artwork,
+# while retaining licensing texts, authorship credits and the technical docs.
+for docs in (Path('docs'), Path('docs/zh')):
+    for pattern in ('ReSukiSU_*.svg', 'zako*.svg'):
+        for artwork in docs.glob(pattern):
+            artwork.unlink()
+    readme = docs / 'README.md'
+    if readme.exists():
+        readme.write_text(''.join(line for line in readme.read_text().splitlines(keepends=True)
+                                  if '<img' not in line or 'ReSukiSU_' not in line))
 
 # Keep all locales consistent where inherited text describes this fork's branding.
 import re
