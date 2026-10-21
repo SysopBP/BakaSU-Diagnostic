@@ -22,6 +22,16 @@ home = 'manager/app/src/main/java/com/resukisu/resukisu/ui/screen/main/HomePage.
 edit(home, 'import androidx.compose.material3.LargeFlexibleTopAppBar',
      'import androidx.compose.material3.TopAppBar')
 edit(home, '    LargeFlexibleTopAppBar(', '    TopAppBar(')
+# A custom wallpaper should continue behind the compact header even without blur.
+# Patch only HomePage's two app-bar color branches; preserve solid default themes.
+home_source = Path(home).read_text()
+color_anchor = 'if (themeConfig.isEnableBlur)\n                    Color.Transparent'
+if home_source.count(color_anchor) != 2:
+    raise SystemExit(f'{home}: expected two app-bar color branches')
+changes[Path(home)] = changes[Path(home)].replace(
+    color_anchor,
+    'if (themeConfig.isEnableBlur || themeConfig.customBackgroundUri != null)\n                    Color.Transparent',
+)
 edit(home, 'if (!uiState.systemStatus.isOfficialSignature) {',
      'if (!uiState.systemStatus.isOfficialSignature &&\n                        !(BuildConfig.SAMSUNG_BUILD && uiState.systemStatus.isManager)) {')
 usecase = 'manager/app/src/main/java/com/resukisu/resukisu/domain/usecase/CheckManagerUpdateUseCase.kt'
