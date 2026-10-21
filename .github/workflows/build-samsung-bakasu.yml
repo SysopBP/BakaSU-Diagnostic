@@ -1,0 +1,226 @@
+name: Build KitsuSU for Samsung (FragX-compatible)
+on:
+  push:
+    branches: [main, 'feat/samsung-jailbreak']
+    paths:
+      - 'scripts/apply-samsung-jailbreak.py'
+      - 'scripts/apply-samsung-manager.py'
+      - 'scripts/verify-manager-artwork.py'
+      - 'vendor/**'
+      - '.github/workflows/build-samsung-bakasu.yml'
+  workflow_dispatch:
+permissions:
+  contents: read
+defaults:
+  run:
+    shell: bash
+env:
+  BAKASU_REF: 239e1e8871b8fcd51a6e5b3002e0ba522fdd99fb
+  KSU_PACKAGE_NAME: app.kitsusu.manager
+  KEYSTORE_ALIAS: fragx
+  KEYSTORE_PASS: android
+jobs:
+  prep:
+    name: Signing key and manager signature
+    runs-on: ubuntu-latest
+    outputs:
+      cert_size: ${{ steps.cert.outputs.size }}
+      cert_hash: ${{ steps.cert.outputs.hash }}
+    steps:
+      - uses: actions/setup-java@v4
+        with:
+          distribution: temurin
+          java-version: '21'
+      - name: Generate per-run test key
+        id: cert
+        run: |
+          set -euo pipefail
+          keytool -genkeypair -keystore keystore.jks -alias "$KEYSTORE_ALIAS" -keyalg RSA -keysize 2048 -validity 10000 -storepass "$KEYSTORE_PASS" -keypass "$KEYSTORE_PASS" -dname 'CN=FragX BakaSU Test'
+          keytool -exportcert -keystore keystore.jks -alias "$KEYSTORE_ALIAS" -storepass "$KEYSTORE_PASS" -file cert.der
+          echo "size=0x$(printf '%x' "$(stat -c%s cert.der)")" >> "$GITHUB_OUTPUT"
+          echo "hash=$(sha256sum cert.der | cut -d' ' -f1)" >> "$GITHUB_OUTPUT"
+      - uses: actions/upload-artifact@v4
+        with:
+          name: signing
+          retention-days: 1
+          path: |
+            keystore.jks
+            cert.der
+  lkm:
+    needs: prep
+    runs-on: ubuntu-latest
+    timeout-minutes: 90
+    strategy:
+      fail-fast: false
+      matrix:
+        kmi: [android12-5.10, android13-5.10, android13-5.15, android14-5.15, android14-6.1, android15-6.6, android16-6.12, android17-6.18]
+    container:
+      image: ghcr.io/ylarod/ddk-min:${{ matrix.kmi }}-20260828
+      options: --privileged
+    steps:
+      - uses: actions/checkout@v4
+        with:
+          path: fork
+      - name: Checkout pinned BakaSU and apply Samsung port
+        run: |
+          set -euo pipefail
+          git clone https://github.com/Baka-SU/BakaSU.git upstream
+          git -C upstream checkout --detach "$BAKASU_REF"
+          git config --global --add safe.directory "$GITHUB_WORKSPACE/upstream"
+          cp fork/vendor/kernel/compat/* upstream/kernel/compat/
+          cd upstream
+          python3 ../fork/scripts/apply-samsung-jailbreak.py
+          python3 ../fork/scripts/apply-samsung-manager.py
+      - name: Build and validate driver
+        working-directory: upstream/kernel
+        run: |
+          set -euo pipefail
+          CONFIG_KSU=m CONFIG_KSU_MULTI_MANAGER_SUPPORT=y CONFIG_KSU_TRACEPOINT_HOOK=y \
+            KSU_EXPECTED_SIZE="${{ needs.prep.outputs.cert_size }}" \
+            KSU_EXPECTED_HASH="${{ needs.prep.outputs.cert_hash }}" CC=clang make -j"$(nproc)"
+          test -s kernelsu.ko
+          llvm-nm kernelsu.ko > symbols.txt
+          grep ksu_rkp_branch_patch symbols.txt
+          strings kernelsu.ko > strings.txt
+          grep -F '@KitsuSU' strings.txt
+          if grep -Fq '@ReSukiSU' strings.txt; then
+            echo 'Driver still reports old ReSukiSU branding' >&2
+            exit 1
+          fi
+          for feature in RKP KDP DEFEX; do grep "Samsung $feature detected" strings.txt; done
+          llvm-strip -d kernelsu.ko
+          mkdir -p "$GITHUB_WORKSPACE/out"
+          cp kernelsu.ko "$GITHUB_WORKSPACE/out/${{ matrix.kmi }}_kernelsu.ko"
+      - uses: actions/upload-artifact@v4
+        with:
+          name: lkm-${{ matrix.kmi }}
+          path: ${{ github.workspace }}/out/*_kernelsu.ko
+          if-no-files-found: error
+  ksud:
+    needs: [prep, lkm]
+    runs-on: ubuntu-latest
+    timeout-minutes: 90
+    steps:
+      - uses: actions/checkout@v4
+        with:
+          path: fork
+      - name: Checkout pinned BakaSU and apply Samsung port
+        run: |
+          set -euo pipefail
+          git clone https://github.com/Baka-SU/BakaSU.git upstream
+          git -C upstream checkout --detach "$BAKASU_REF"
+          cp fork/vendor/kernel/compat/* upstream/kernel/compat/
+          cd upstream
+          python3 ../fork/scripts/apply-samsung-jailbreak.py
+          python3 ../fork/scripts/apply-samsung-manager.py
+      - uses: actions/download-artifact@v4
+        with:
+          pattern: lkm-*
+          merge-multiple: true
+          path: drivers
+      - name: Stage patched drivers only
+        run: |
+          set -euo pipefail
+          rm -f upstream/userspace/ksud/bin/aarch64/*_kernelsu.ko
+          cp drivers/*_kernelsu.ko upstream/userspace/ksud/bin/aarch64/
+          test "$(find upstream/userspace/ksud/bin/aarch64 -name '*_kernelsu.ko' | wc -l)" -eq 8
+      - uses: dtolnay/rust-toolchain@nightly
+        with:
+          targets: aarch64-linux-android
+          components: rust-src
+      - name: Install cargo-ndk
+        run: cargo install cargo-ndk --locked
+      - name: Build bootstrap and ksud
+        working-directory: upstream
+        run: |
+          set -euo pipefail
+          clang --target=aarch64-linux-gnu -c -nostdlib -o userspace/ksud/.lkm_image_bootstrap.o userspace/ksud/src/lkm_image_bootstrap.S
+          cd userspace/ksud
+          cargo ndk b -P 26 -t aarch64-linux-android -r -Z build-std-features="optimize_for_size" -Z trim-paths
+          test -s target/aarch64-linux-android/release/ksud
+      - name: Bundle corresponding modified source and licenses
+        run: |
+          set -euo pipefail
+          python3 fork/scripts/verify-manager-artwork.py --source upstream
+          mkdir -p source-bundle
+          cp -a fork/vendor fork/scripts fork/.github source-bundle/
+          git -C upstream rev-parse HEAD > source-bundle/BAKASU_COMMIT.txt
+          tar --exclude=.git --exclude=target --exclude=build --exclude=.gradle -czf KitsuSU-samsung-source.tar.gz upstream source-bundle
+          python3 fork/scripts/verify-manager-artwork.py --archive KitsuSU-samsung-source.tar.gz
+      - uses: actions/upload-artifact@v4
+        with:
+          name: KitsuSU-samsung-source
+          path: KitsuSU-samsung-source.tar.gz
+      - uses: actions/upload-artifact@v4
+        with:
+          name: ksud
+          path: upstream/userspace/ksud/target/aarch64-linux-android/release/ksud
+          if-no-files-found: error
+  apk:
+    needs: [prep, ksud]
+    runs-on: ubuntu-latest
+    timeout-minutes: 90
+    steps:
+      - uses: actions/checkout@v4
+        with:
+          path: fork
+      - name: Checkout pinned BakaSU
+        run: |
+          git clone https://github.com/Baka-SU/BakaSU.git upstream
+          git -C upstream checkout --detach "$BAKASU_REF"
+          cd upstream
+          python3 ../fork/scripts/apply-samsung-manager.py
+      - uses: actions/setup-java@v4
+        with:
+          distribution: temurin
+          java-version: '21'
+      - uses: gradle/actions/setup-gradle@v4
+      - uses: actions/download-artifact@v4
+        with:
+          name: signing
+      - uses: actions/download-artifact@v4
+        with:
+          name: ksud
+          path: ksud-bin
+      - name: Build manager APK
+        working-directory: upstream/manager
+        run: |
+          chmod +x gradlew
+          # Restore the manager build mode used by the phone-tested working APK.
+          ./gradlew :app:assembleDebug --stacktrace --no-daemon
+      - name: Stage daemon and repack
+        working-directory: upstream
+        run: |
+          set -euo pipefail
+          mkdir -p target/aarch64-linux-android/release
+          cp "$GITHUB_WORKSPACE/ksud-bin/ksud" target/aarch64-linux-android/release/ksud
+          python3 repack_apk_multi.py repack -b debug -t release -a arm64-v8a -K "$GITHUB_WORKSPACE/keystore.jks" -A "$KEYSTORE_ALIAS" -P "$KEYSTORE_PASS" -S "$KEYSTORE_PASS"
+      - name: Validate APK signature and embedded daemon
+        run: |
+          set -euo pipefail
+          APK=$(find upstream/dist -type f -name '*.apk' -print -quit)
+          test -s "$APK"
+          python3 fork/scripts/verify-manager-artwork.py --source upstream --archive "$APK"
+          AAPT="$ANDROID_HOME/build-tools/$(ls "$ANDROID_HOME/build-tools" | sort -V | tail -1)/aapt"
+          "$AAPT" dump badging "$APK" > /tmp/badging.txt
+          grep -x "application-label:'KitsuSU'" /tmp/badging.txt
+          grep -q "^package: name='app.kitsusu.manager' " /tmp/badging.txt
+          grep -q 'application-debuggable' /tmp/badging.txt
+          unzip -Z1 "$APK" > /tmp/apk-files.txt
+          grep -x 'lib/arm64-v8a/libksud.so' /tmp/apk-files.txt
+          unzip -p "$APK" lib/arm64-v8a/libksud.so > /tmp/libksud.so
+          cmp ksud-bin/ksud /tmp/libksud.so
+          strings /tmp/libksud.so > /tmp/daemon-strings.txt
+          grep -Fq 'app.kitsusu.manager' /tmp/daemon-strings.txt
+          SIGNER="$ANDROID_HOME/build-tools/$(ls "$ANDROID_HOME/build-tools" | sort -V | tail -1)/apksigner"
+          "$SIGNER" verify --verbose --print-certs "$APK" > /tmp/signature.txt
+          grep -i "${{ needs.prep.outputs.cert_hash }}" /tmp/signature.txt
+          cp "$APK" KitsuSU-samsung-arm64.apk
+          sha256sum KitsuSU-samsung-arm64.apk > KitsuSU-samsung-arm64.apk.sha256
+      - uses: actions/upload-artifact@v4
+        with:
+          name: KitsuSU-samsung-arm64
+          path: |
+            KitsuSU-samsung-arm64.apk
+            KitsuSU-samsung-arm64.apk.sha256
+          if-no-files-found: error
