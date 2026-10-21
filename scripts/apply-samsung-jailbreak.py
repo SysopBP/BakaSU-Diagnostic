@@ -26,6 +26,8 @@ def include(name):
 for name in ['jailbreak.h', 'jailbreak.c', 'defex.c', 'kdp.c', 'rkp.c']:
     if not (Path('kernel/compat') / name).is_file():
         raise SystemExit(f'Missing kernel/compat/{name}')
+# Brand the version returned by the driver; keep version/commit identifiers intact.
+edit('Kbuild', 'REPO_NAME := ReSukiSU\n', 'REPO_NAME := KitsuSU\n')
 edit('Kbuild', 'kernelsu-objs += compat/kernel_compat.o\n',
      'kernelsu-objs += compat/kernel_compat.o\nkernelsu-objs += compat/jailbreak.o compat/defex.o compat/kdp.o compat/rkp.o\n')
 include('core/init.c')

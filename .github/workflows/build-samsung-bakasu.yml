@@ -81,6 +81,11 @@ jobs:
           llvm-nm kernelsu.ko > symbols.txt
           grep ksu_rkp_branch_patch symbols.txt
           strings kernelsu.ko > strings.txt
+          grep -F '@KitsuSU' strings.txt
+          if grep -Fq '@ReSukiSU' strings.txt; then
+            echo 'Driver still reports old ReSukiSU branding' >&2
+            exit 1
+          fi
           for feature in RKP KDP DEFEX; do grep "Samsung $feature detected" strings.txt; done
           llvm-strip -d kernelsu.ko
           mkdir -p "$GITHUB_WORKSPACE/out"
