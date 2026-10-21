@@ -176,16 +176,15 @@ jobs:
         working-directory: upstream/manager
         run: |
           chmod +x gradlew
-          ./gradlew :app:assembleRelease :app:lintRelease --stacktrace --no-daemon
-          # Repack only the arm64 split; other ABIs have no Samsung daemon.
-          find app/build/outputs/apk/release -name '*.apk' ! -name '*-arm64-v8a-release*.apk' -delete
+          # Restore the manager build mode used by the phone-tested working APK.
+          ./gradlew :app:assembleDebug --stacktrace --no-daemon
       - name: Stage daemon and repack
         working-directory: upstream
         run: |
           set -euo pipefail
           mkdir -p target/aarch64-linux-android/release
           cp "$GITHUB_WORKSPACE/ksud-bin/ksud" target/aarch64-linux-android/release/ksud
-          python3 repack_apk_multi.py repack -b release -t release -a arm64-v8a -K "$GITHUB_WORKSPACE/keystore.jks" -A "$KEYSTORE_ALIAS" -P "$KEYSTORE_PASS" -S "$KEYSTORE_PASS"
+          python3 repack_apk_multi.py repack -b debug -t release -a arm64-v8a -K "$GITHUB_WORKSPACE/keystore.jks" -A "$KEYSTORE_ALIAS" -P "$KEYSTORE_PASS" -S "$KEYSTORE_PASS"
       - name: Validate APK signature and embedded daemon
         run: |
           set -euo pipefail
@@ -194,10 +193,7 @@ jobs:
           AAPT="$ANDROID_HOME/build-tools/$(ls "$ANDROID_HOME/build-tools" | sort -V | tail -1)/aapt"
           "$AAPT" dump badging "$APK" > /tmp/badging.txt
           grep -x "application-label:'BakaSU'" /tmp/badging.txt
-          if grep -q 'application-debuggable' /tmp/badging.txt; then
-            echo 'Samsung manager must be a release build' >&2
-            exit 1
-          fi
+          grep -q 'application-debuggable' /tmp/badging.txt
           unzip -Z1 "$APK" > /tmp/apk-files.txt
           grep -x 'lib/arm64-v8a/libksud.so' /tmp/apk-files.txt
           unzip -p "$APK" lib/arm64-v8a/libksud.so > /tmp/libksud.so
