@@ -42,6 +42,20 @@ edit(usecase, 'import com.resukisu.resukisu.data.update.ManagerUpdateRepository'
      'import com.resukisu.resukisu.BuildConfig\nimport com.resukisu.resukisu.data.update.ManagerUpdateRepository')
 edit(usecase, '        when (channel) {',
      '        if (BuildConfig.SAMSUNG_BUILD) null else when (channel) {')
+# Product-facing branding; package IDs, native metadata, and credits stay intact.
+base = 'manager/app/src/main/java/com/resukisu/resukisu/'
+edit(base + 'data/logging/BugreportDataSource.kt',
+     'pw.println("ReSukiSU: $ksuKernelFull")',
+     'pw.println("KitsuSU driver: $ksuKernelFull")')
+edit(base + 'di/AppModules.kt',
+     '"ReSukiSU/${BuildConfig.VERSION_CODE}"',
+     '"KitsuSU/${BuildConfig.VERSION_CODE}"')
+edit(base + 'ui/screen/about/About.kt',
+     'https://github.com/ReSukiSU/ReSukiSU',
+     'https://github.com/SysopBP/BakaSU-Diagnostic/tree/feat/samsung-jailbreak')
+edit(base + 'ui/screen/about/About.kt',
+     'https://t.me/ReSukiSU',
+     'https://github.com/SysopBP/BakaSU-Diagnostic/issues')
 for path, text in changes.items():
     path.write_text(text)
     print(f'patched {path}')
@@ -62,3 +76,18 @@ icon = """<?xml version="1.0" encoding="utf-8"?>
 """
 for name in ('ic_launcher', 'ic_launcher_round', 'ic_launcher_alt', 'ic_launcher_alt_round'):
     (res / 'mipmap' / (name + '.xml')).write_text(icon)
+
+# Keep all locales consistent where inherited text describes this fork's branding.
+import re
+branding_strings = {
+    'join_telegram_group': 'KitsuSU support',
+    'join_telegram_group_detail': 'Report issues and follow KitsuSU development on GitHub',
+    'icon_switch_summary': 'Switch the KitsuSU launcher icon',
+}
+for strings in res.glob('values*/strings.xml'):
+    content = strings.read_text()
+    for key, replacement in branding_strings.items():
+        pattern = r'(<string\s+name="' + re.escape(key) + r'"[^>]*>).*?(</string>)'
+        content = re.sub(pattern, lambda match: match[1] + replacement + match[2],
+                         content, flags=re.DOTALL)
+    strings.write_text(content)
