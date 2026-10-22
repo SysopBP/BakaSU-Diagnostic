@@ -37,6 +37,29 @@ Inspect the relevant workflow under [`.github/workflows`](https://github.com/Sys
 
 If reporting an issue, include the device model, Android and One UI versions, security patch date, kernel version, exact commit/build, and sanitized diagnostic output. **Never post private keys, tokens, device identifiers, or personal information.**
 
+## Origins and credits
+
+**KitsuSU began as a customized BakaSU-derived project; it is not an original replacement for the upstream root implementation.** The development lineage is:
+
+[KernelSU](https://github.com/tiann/KernelSU) → [SukiSU Ultra](https://github.com/SukiSU-Ultra/SukiSU-Ultra) → [BakaSU (formerly ReSukiSU)](https://github.com/Baka-SU/BakaSU) → KitsuSU modifications in this workspace.
+
+- **KernelSU / weishu and contributors:** original upstream kernel-assisted root project.
+- **SukiSU Ultra and contributors:** intermediate downstream project credited by BakaSU.
+- **BakaSU Development and contributors:** original BakaSU implementation and manager that KitsuSU was developed from.
+- **OukaroMF:** original BakaSU artwork attribution; see BakaSU's asset-specific licensing documentation. Do not assume original artwork can be relicensed or reused as KitsuSU artwork.
+- **diabl0w / DFRoot:** separately sourced Samsung-related compatibility work where actually incorporated; verify file-level provenance and applicable terms.
+- **SysopBP and contributors/testers:** KitsuSU-specific branding, integration, diagnostic and Samsung-focused changes, subject to the actual commit history.
+
+### Version and branding history
+
+The original diagnostic workspace targeted **BakaSU 4.0.0**. Subsequent experimental work introduced the **KitsuSU** identity, manager changes and Samsung-specific integrations. A new name, icon, package identifier or driver label does not erase upstream copyright or change the underlying code's license.
+
+### Licensing checklist
+
+Upstream BakaSU documents **GPL-2.0-only for its kernel directory**, **GPL-3.0-or-later for most other code**, and separate licensing arrangements for specified artwork. See its [LICENSE](https://github.com/Baka-SU/BakaSU/blob/main/LICENSE) and [ASSETS_LICENSE.md](https://github.com/Baka-SU/BakaSU/blob/main/ASSETS_LICENSE.md). These are upstream statements, not a substitute for reviewing the exact KitsuSU source and bundled third-party components.
+
+Before distributing modified APKs or kernel binaries, preserve applicable copyright and license notices, provide the corresponding source as required, identify changes, and include relevant license and asset notices with the distributed material. The pending [source-packaging PR](https://github.com/SysopBP/BakaSU-Diagnostic/pull/1) should be verified against the exact release artifact. **This README alone does not establish GPL compliance.**
+
 ## Upstream and licensing
 
 This work builds on the broader [KernelSU](https://github.com/tiann/KernelSU) and [DirtyFrag / DFRoot](https://github.com/diabl0w/DFRoot) ecosystems. Credit and license obligations for individual components remain governed by their respective source files and licenses. Preserve original copyright notices, license texts, modification notices, and applicable corresponding-source distribution when publishing modified binaries.
