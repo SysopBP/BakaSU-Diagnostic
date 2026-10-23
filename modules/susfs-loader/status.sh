@@ -3,6 +3,7 @@
 # Fixed read-only probe shared by Action and WebUI. Never loads or configures SusFS.
 MODDIR=${0%/*}
 [ "$(id -u)" = 0 ] || { echo 'Root required'; exit 1; }
+echo 'For the graphical UI, return to Modules and tap the SusFS module card or its WebUI button.'
 section() { printf '\n=== %s ===\n' "$1"; }
 section KERNEL
 uname -r
@@ -22,12 +23,20 @@ for NAME in load.log load.log.previous; do
   if [ -f "$MODDIR/$NAME" ]; then tail -c 65536 "$MODDIR/$NAME"; else echo 'No saved log.'; fi
 done
 section 'HOOK MESSAGES'
-MESSAGES=$(dmesg 2>&1)
+# Android may resolve printf to an external executable. Never pass a complete
+# kernel ring buffer as an argument: it can exceed the per-argument limit.
+LOG=$(mktemp "${TMPDIR:-/data/local/tmp}/kitsu-susfs-status.XXXXXX") || exit 1
+trap 'rm -f "$LOG"' EXIT
+dmesg >"$LOG" 2>&1
 RC=$?
 if [ "$RC" != 0 ]; then
-  printf 'Kernel log unavailable (exit %s):\n%s\n' "$RC" "$MESSAGES"
+  printf 'Kernel log unavailable (exit %s):\n' "$RC"
+  tail -c 65536 "$LOG"
 else
-  MATCHES=$(printf '%s\n' "$MESSAGES" | grep -iE 'susfs|kstat:|or_entry:|opath|patch_memory' | tail -100)
-  if [ -n "$MATCHES" ]; then printf '%s\n' "$MATCHES"; else echo 'No matching kernel messages remain.'; fi
+  # Filter a file, then bound the report sent through the WebUI bridge.
+  grep -iE 'susfs|kstat:|or_entry:|opath|patch_memory' "$LOG" | tail -100 | tail -c 65536
+  if ! grep -qiE 'susfs|kstat:|or_entry:|opath|patch_memory' "$LOG"; then
+    echo 'No matching kernel messages remain.'
+  fi
 fi
 exit 0
