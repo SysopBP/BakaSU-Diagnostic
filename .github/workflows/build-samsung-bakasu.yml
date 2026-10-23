@@ -1,7 +1,7 @@
 name: Build KitsuSU for Samsung (FragX-compatible)
 on:
   push:
-    branches: [main, 'feat/samsung-jailbreak', 'feat/kitsusu-recovery-controls']
+    branches: [main, 'feat/samsung-jailbreak', 'feat/kitsusu-recovery-controls', 'fix/kitsusu-module-action-output']
     paths:
       - 'scripts/apply-samsung-jailbreak.py'
       - 'scripts/apply-samsung-manager.py'
