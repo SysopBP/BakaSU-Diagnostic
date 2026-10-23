@@ -140,3 +140,28 @@ for name in ('userspace/ksud/build.rs', 'userspace/ksud/src/android/cli.rs'):
         raise SystemExit(f'{source}: missing package default anchor')
     source.write_text(content.replace(old_package, new_package))
 print(f'manager namespace and daemon defaults: {new_package}')
+
+# KitsuSU recovery controls: keep UI/data sources and resource text reviewable.
+recovery_assets = asset_dir / 'recovery'
+manager_java = Path('manager/app/src/main/java/app/kitsusu/manager')
+for filename, relative in (
+    ('KitsuRecoveryControls.kt', 'ui/screen/main/KitsuRecoveryControls.kt'),
+    ('KitsuRecoveryRepository.kt', 'data/recovery/KitsuRecoveryRepository.kt'),
+):
+    target = manager_java / relative
+    target.parent.mkdir(parents=True, exist_ok=True)
+    copyfile(recovery_assets / filename, target)
+copyfile(recovery_assets / 'kitsu_recovery.xml', res / 'values/kitsu_recovery.xml')
+settings = manager_java / 'ui/screen/main/SettingsPage.kt'
+text = settings.read_text()
+anchor = '            // 配置卡片\n'
+if text.count(anchor) != 1:
+    raise SystemExit('Settings recovery insertion anchor changed')
+settings.write_text(text.replace(anchor, '            item { KitsuRecoveryControls() }\n' + anchor, 1))
+manifest = Path('manager/app/src/main/AndroidManifest.xml')
+text = manifest.read_text()
+anchor = '    <application'
+if text.count(anchor) != 1:
+    raise SystemExit('Manifest application anchor changed')
+manifest.write_text(text.replace(anchor,
+    '    <queries>\n        <package android:name="com.sysopbp.fragx" />\n    </queries>\n\n' + anchor, 1))
