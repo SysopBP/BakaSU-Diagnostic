@@ -165,3 +165,41 @@ if text.count(anchor) != 1:
     raise SystemExit('Manifest application anchor changed')
 manifest.write_text(text.replace(anchor,
     '    <queries>\n        <package android:name="com.sysopbp.fragx" />\n    </queries>\n\n' + anchor, 1))
+
+# Read-only SusFS LKM runtime evidence, separate from advertised CONFIG flags.
+susfs_assets = asset_dir / 'susfs'
+for filename, relative in (
+    ('KitsuSusfsRuntimeRepository.kt', 'data/susfs/KitsuSusfsRuntimeRepository.kt'),
+    ('KitsuSusfsRuntimeCard.kt', 'ui/screen/susfs/subpages/KitsuSusfsRuntimeCard.kt'),
+):
+    target = manager_java / relative
+    copyfile(susfs_assets / filename, target)
+# Supply fallback copy in every maintained locale; translations can follow independently.
+for values in res.glob('values*'):
+    if values.is_dir() and (values / 'strings.xml').exists():
+        copyfile(susfs_assets / 'kitsu_susfs_runtime.xml', values / 'kitsu_susfs_runtime.xml')
+status_tab = manager_java / 'ui/screen/susfs/subpages/SuSFSConfigStatusTab.kt'
+text = status_tab.read_text()
+def status_replace(old, new):
+    global text
+    if text.count(old) != 1:
+        raise SystemExit(f'SusFS runtime insertion anchor changed: {old!r}')
+    text = text.replace(old, new, 1)
+status_replace('import android.net.Uri', '''import android.net.Uri
+import app.kitsusu.manager.data.shell.KsuCliRepository
+import app.kitsusu.manager.data.susfs.KitsuSusfsRuntimeRepository
+import org.koin.compose.koinInject''')
+status_replace('    RegisterSuSFSRefresh(onRegisterRefresh) { _, forceRefresh ->', '''    val runtimeCli = koinInject<KsuCliRepository>()
+    val runtimeRepository = remember(runtimeCli) { KitsuSusfsRuntimeRepository(runtimeCli) }
+    var runtimeStatus by remember { mutableStateOf(KitsuSusfsRuntimeRepository.unknown()) }
+
+    RegisterSuSFSRefresh(onRegisterRefresh) { _, forceRefresh ->
+        runtimeStatus = KitsuSusfsRuntimeRepository.unknown()
+        runtimeStatus = runtimeRepository.load()''')
+status_replace('R.string.susfs_status_enabled_features', 'R.string.kitsu_susfs_advertised_features')
+status_replace('            BackupRestoreSection(onConfigRestored = onConfigRestored)', '''            KitsuSusfsRuntimeCard(runtimeStatus)
+        }
+
+        item {
+            BackupRestoreSection(onConfigRestored = onConfigRestored)''')
+status_tab.write_text(text)
