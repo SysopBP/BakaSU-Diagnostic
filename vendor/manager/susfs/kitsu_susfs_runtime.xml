@@ -1,0 +1,12 @@
+<?xml version="1.0" encoding="utf-8"?>
+<resources>
+    <string name="kitsu_susfs_runtime_title">Runtime availability</string>
+    <string name="kitsu_susfs_runtime_summary">Read-only checks for the SusFS LKM. Advertised features may include hooks that failed to load. Availability does not verify hiding or spoofing; test results apply only to the tested process and file.</string>
+    <string name="kitsu_susfs_runtime_path">SUS Path interface</string>
+    <string name="kitsu_susfs_runtime_kstat">Kstat hooks</string>
+    <string name="kitsu_susfs_runtime_redirect">Open Redirect prerequisites</string>
+    <string name="kitsu_susfs_runtime_available">Available — functional test required</string>
+    <string name="kitsu_susfs_runtime_unavailable">Unavailable in this session</string>
+    <string name="kitsu_susfs_runtime_unknown">Not verified — runtime evidence unavailable or inconclusive</string>
+    <string name="kitsu_susfs_advertised_features">Advertised features</string>
+</resources>

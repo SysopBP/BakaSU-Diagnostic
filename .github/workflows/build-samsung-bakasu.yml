@@ -9,7 +9,7 @@ on:
       - 'vendor/**'
       - '.github/workflows/build-samsung-bakasu.yml'
   pull_request:
-    branches: [main, 'feat/samsung-jailbreak']
+    branches: [main, 'feat/samsung-jailbreak', 'feat/kitsusu-recovery-controls']
   workflow_dispatch:
 permissions:
   contents: read
