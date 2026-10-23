@@ -1,6 +1,5 @@
 #!/system/bin/sh
 # SPDX-License-Identifier: GPL-2.0-only
 MODDIR=${0%/*}
-# Read status or load if absent. A failed-load latch is never cleared automatically.
-/system/bin/sh "$MODDIR/load.sh"
-cat "$MODDIR/load.log"
+# Action is read-only. Loading is confined to the existing boot-stage loader.
+/system/bin/sh "$MODDIR/status.sh"

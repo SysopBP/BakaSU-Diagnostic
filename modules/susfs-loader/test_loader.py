@@ -26,9 +26,12 @@ with tempfile.TemporaryDirectory() as temp:
  (mod/'disable').touch();assert run()==0 and calls()==0;(mod/'disable').unlink()
  assert run(TEST_KERNEL='6.6.1-android15-test')==1 and calls()==0
  assert run(TEST_FAIL='1')==1 and calls()==1 and (mod/'load-failed').exists()
- assert run()==1 and calls()==1 # retry latch
+ failed_log=(mod/'load.log').read_bytes()
+ assert run()==1 and calls()==1 and (mod/'load.log').read_bytes()==failed_log # retry latch preserves evidence
  (mod/'load-failed').unlink()
  assert run()==0 and calls()==2 and not (mod/'load-failed').exists()
- assert run()==0 and calls()==2 # duplicate guard
+ success_log=(mod/'load.log').read_bytes()
+ assert run()==0 and calls()==2 and (mod/'load.log').read_bytes()==success_log # duplicate guard preserves evidence
+ assert (mod/'load.log.previous').read_bytes()==failed_log
  (mod/'load.lock').mkdir();assert run()==1 and calls()==2
  print('PASS: shell syntax, safe mode, disabled module, kernel mismatch, failed load, failure latch, successful load, duplicate guard, concurrent-load lock')

@@ -1,0 +1,21 @@
+import assert from 'node:assert/strict';
+import {readFile} from 'node:fs/promises';
+const source = await readFile(new URL('./index.js', import.meta.url), 'utf8');
+const {runProbe, sections, interfaceLabel} = await import('data:text/javascript;base64,' + Buffer.from(source).toString('base64'));
+let calls = 0;
+const bridge = {exec(command, options, callback) {
+  assert.equal(command, '/system/bin/sh /data/adb/modules/susfs_guard_lkm/status.sh');
+  assert.equal(options, '{}');
+  calls++;
+  globalThis[callback](0, '=== MODULE ===\npresent\n', '');
+  assert.equal(globalThis[callback], undefined);
+}};
+assert.equal(sections(await runProbe(bridge)).MODULE.trim(), 'present');
+assert.equal(interfaceLabel('Interface present; functionality not verified.'), 'Interface present · unverified');
+assert.equal(interfaceLabel('Interface unavailable; cause not established.'), 'Interface unavailable');
+assert.equal(interfaceLabel(), 'Not verified');
+await assert.rejects(runProbe({exec(c, o, callback) {globalThis[callback](1, '', 'Root denied');}}), /Root denied/);
+await assert.rejects(runProbe({exec() {throw Error('Bridge failed');}}), /Bridge failed/);
+await assert.rejects(runProbe({}), /Open this page/);
+assert.equal(calls, 1);
+console.log('PASS: fixed read-only command, parsing, callback cleanup, root errors, missing bridge');

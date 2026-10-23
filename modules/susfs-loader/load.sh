@@ -10,20 +10,25 @@ umask 077
 # A leftover lock after a killed loader deliberately blocks automatic retries.
 mkdir "$MODDIR/load.lock" 2>/dev/null || { echo 'Loader locked; inspect load.log before retrying'; exit 1; }
 trap 'rmdir "$MODDIR/load.lock" 2>/dev/null' EXIT
-exec >"$MODDIR/load.log" 2>&1
 status() {
   echo "$1"
   sed -i "s#^description=.*#description=$1#" "$MODDIR/module.prop"
 }
 echo "KitsuSU SusFS preview loader: $(date)"
 if [ -d /sys/module/susfs_guard_lkm ] || [ -e /proc/susfs_path ]; then
-  status 'SusFS already present; skipped duplicate load. Feature status is separate.'
+  echo 'SusFS already present; skipped duplicate load. Original load log preserved.'
   exit 0
 fi
 if [ -f "$MODDIR/load-failed" ]; then
-  status 'Previous load failed; automatic retries paused. Inspect load.log.previous.'
+  echo 'Previous load failed; automatic retries paused. Original load log preserved.'
   exit 1
 fi
+# Rotate only for a new load attempt; duplicate checks must preserve initialization evidence.
+if [ -f "$MODDIR/load.log" ]; then
+  cp "$MODDIR/load.log" "$MODDIR/load.log.previous" || exit 1
+fi
+exec >"$MODDIR/load.log" 2>&1
+echo "KitsuSU SusFS preview loader: $(date)"
 REL=$(uname -r)
 case "$REL" in
   6.12.*-android16-*) ;;
@@ -51,7 +56,6 @@ done
 echo '=== Recent SusFS kernel messages ==='
 dmesg | grep -iE 'susfs|kstat:|or_entry:|opath' | tail -100
 if [ -f "$MODDIR/load-failed" ]; then
-  cp "$MODDIR/load.log" "$MODDIR/load.log.previous"
   exit 1
 fi
 exit 0
