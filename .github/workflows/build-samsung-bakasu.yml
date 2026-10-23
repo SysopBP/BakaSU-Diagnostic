@@ -1,13 +1,15 @@
 name: Build KitsuSU for Samsung (FragX-compatible)
 on:
   push:
-    branches: [main, 'feat/samsung-jailbreak']
+    branches: [main, 'feat/samsung-jailbreak', 'feat/kitsusu-recovery-controls']
     paths:
       - 'scripts/apply-samsung-jailbreak.py'
       - 'scripts/apply-samsung-manager.py'
       - 'scripts/verify-manager-artwork.py'
       - 'vendor/**'
       - '.github/workflows/build-samsung-bakasu.yml'
+  pull_request:
+    branches: [main, 'feat/samsung-jailbreak']
   workflow_dispatch:
 permissions:
   contents: read

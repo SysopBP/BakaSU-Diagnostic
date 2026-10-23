@@ -1,0 +1,24 @@
+<?xml version="1.0" encoding="utf-8"?>
+<resources>
+    <string name="kitsu_root_management">Root management</string>
+    <string name="kitsu_susfs_title">SusFS · experimental</string>
+    <string name="kitsu_susfs_summary">Enable the existing SusFS configuration. Requires kernel support; this switch does not install SusFS. Some changes require a reboot.</string>
+    <string name="kitsu_susfs_status">SusFS status and configuration</string>
+    <string name="kitsu_checking">Checking support…</string>
+    <string name="kitsu_susfs_available">Kernel reports SusFS support. Tap for detailed configuration.</string>
+    <string name="kitsu_susfs_unsupported">No SusFS support reported by this kernel.</string>
+    <string name="kitsu_check_failed">Support check unavailable. Check root permission and reopen Settings.</string>
+    <string name="kitsu_config_saved">Configuration saved. Open details to inspect settings.</string>
+    <string name="kitsu_recovery_management">Recovery management</string>
+    <string name="kitsu_vaultguard">Keep Odin reachable · VaultGuard</string>
+    <string name="kitsu_vaultguard_summary">Open FragX to inspect and manage Samsung recovery protection. Status is verified there.</string>
+    <string name="kitsu_fragx_missing">Install FragX to manage VaultGuard.</string>
+    <string name="kitsu_restart_zygote">Restart Zygote</string>
+    <string name="kitsu_restart_zygote_summary">Restarts the primary Android application runtime. Apps will close; save your work. This does not remount modules.</string>
+    <string name="kitsu_soft_reboot">Soft reboot</string>
+    <string name="kitsu_soft_reboot_summary">Use the active KitsuSU daemon to restart Android and process module boot stages. Save your work first.</string>
+    <string name="kitsu_unroot">Reboot and stop FragX autorun</string>
+    <string name="kitsu_unroot_summary">For temporary FragX root: disables FragX Autorun for user 0, then fully reboots. Does not remove patched boot images or other root-on-boot services. Review VaultGuard in FragX first. Re-enable Autorun in FragX when wanted.</string>
+    <string name="kitsu_request_sent">Request accepted; completion is not independently verified.</string>
+    <string name="kitsu_action_failed">Action failed or root unavailable. No success was confirmed.</string>
+</resources>
