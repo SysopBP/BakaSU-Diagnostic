@@ -1,0 +1,36 @@
+name: Validate SusFS loader preview
+on:
+  pull_request:
+    paths:
+      - 'modules/susfs-loader/**'
+      - 'releases/experimental/**'
+      - '.github/workflows/susfs-loader-preview.yml'
+  push:
+    branches: ['feat/susfs-loader-preview']
+    paths:
+      - 'modules/susfs-loader/**'
+      - 'releases/experimental/**'
+      - '.github/workflows/susfs-loader-preview.yml'
+  workflow_dispatch:
+permissions:
+  contents: read
+jobs:
+  package:
+    runs-on: ubuntu-latest
+    steps:
+      - uses: actions/checkout@v4
+      - uses: actions/setup-python@v5
+        with:
+          python-version: '3.12'
+      - name: Test guarded loader without loading any kernel module
+        run: python3 modules/susfs-loader/test_loader.py
+      - name: Rebuild and compare shipped ZIP
+        run: |
+          python3 modules/susfs-loader/pack.py --out rebuilt/KitsuSU-SusFS-Loader-6.12-preview1.zip
+          cmp releases/experimental/KitsuSU-SusFS-Loader-6.12-preview1.zip rebuilt/KitsuSU-SusFS-Loader-6.12-preview1.zip
+          cd releases/experimental
+          sha256sum -c SHA256SUMS
+      - uses: actions/upload-artifact@v4
+        with:
+          name: KitsuSU-SusFS-Loader-6.12-preview1
+          path: rebuilt/KitsuSU-SusFS-Loader-6.12-preview1.zip
