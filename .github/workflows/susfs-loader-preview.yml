@@ -1,16 +1,10 @@
-name: Validate SusFS loader preview
+name: Build SusFS loader WebUI preview
 on:
   pull_request:
-    paths:
-      - 'modules/susfs-loader/**'
-      - 'releases/experimental/**'
-      - '.github/workflows/susfs-loader-preview.yml'
+    paths: ['modules/susfs-loader/**', '.github/workflows/susfs-loader-preview.yml']
   push:
-    branches: ['feat/susfs-loader-preview']
-    paths:
-      - 'modules/susfs-loader/**'
-      - 'releases/experimental/**'
-      - '.github/workflows/susfs-loader-preview.yml'
+    branches: ['feat/susfs-loader-preview', 'feat/susfs-webui-preview']
+    paths: ['modules/susfs-loader/**', '.github/workflows/susfs-loader-preview.yml']
   workflow_dispatch:
 permissions:
   contents: read
@@ -22,15 +16,36 @@ jobs:
       - uses: actions/setup-python@v5
         with:
           python-version: '3.12'
-      - name: Test guarded loader without loading any kernel module
-        run: python3 modules/susfs-loader/test_loader.py
-      - name: Rebuild and compare shipped ZIP
+      - uses: actions/setup-node@v4
+        with:
+          node-version: '22'
+      - uses: actions/checkout@v4
+        with:
+          repository: sidex15/susfs4ksu-module
+          ref: b2d5e037b2370d5ae13a15eab0d7d1c29cbe80b0
+          path: upstream-webui
+      - name: Test loader and read-only WebUI bridge
         run: |
-          python3 modules/susfs-loader/pack.py --out rebuilt/KitsuSU-SusFS-Loader-6.12-preview1.zip
-          cmp releases/experimental/KitsuSU-SusFS-Loader-6.12-preview1.zip rebuilt/KitsuSU-SusFS-Loader-6.12-preview1.zip
+          python3 modules/susfs-loader/test_loader.py
+          node modules/susfs-loader/webui/test_bridge.mjs
           cd releases/experimental
           sha256sum -c SHA256SUMS
+      - name: Adapt pinned upstream WebUI
+        run: python3 modules/susfs-loader/webui/prepare.py --upstream upstream-webui --out webui-build
+      - name: Build WebUI
+        working-directory: webui-build
+        run: |
+          npm ci --ignore-scripts --no-audit --no-fund
+          npm run build
+      - name: Package preview with source and licenses
+        run: |
+          python3 modules/susfs-loader/pack_webui.py --webroot webui-build/dist --upstream upstream-webui --out rebuilt/KitsuSU-SusFS-Loader-6.12-preview2.zip
+          python3 modules/susfs-loader/pack_webui.py --webroot webui-build/dist --upstream upstream-webui --out rebuilt/repeat.zip
+          cmp rebuilt/KitsuSU-SusFS-Loader-6.12-preview2.zip rebuilt/repeat.zip
+          rm rebuilt/repeat.zip
+          cd rebuilt
+          sha256sum *.zip > SHA256SUMS.txt
       - uses: actions/upload-artifact@v4
         with:
-          name: KitsuSU-SusFS-Loader-6.12-preview1
-          path: rebuilt/KitsuSU-SusFS-Loader-6.12-preview1.zip
+          name: KitsuSU-SusFS-Loader-6.12-preview2
+          path: rebuilt/*
