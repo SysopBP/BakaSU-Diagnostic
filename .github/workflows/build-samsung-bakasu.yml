@@ -26,12 +26,12 @@ env:
 jobs:
   prep:
     name: Signing key and manager signature
-    runs-on: ubuntu-latest
+    runs-on: ubuntu-24.04
     outputs:
       cert_size: ${{ steps.cert.outputs.size }}
       cert_hash: ${{ steps.cert.outputs.hash }}
     steps:
-      - uses: actions/setup-java@v4
+      - uses: actions/setup-java@v5
         with:
           distribution: temurin
           java-version: '21'
@@ -43,7 +43,7 @@ jobs:
           keytool -exportcert -keystore keystore.jks -alias "$KEYSTORE_ALIAS" -storepass "$KEYSTORE_PASS" -file cert.der
           echo "size=0x$(printf '%x' "$(stat -c%s cert.der)")" >> "$GITHUB_OUTPUT"
           echo "hash=$(sha256sum cert.der | cut -d' ' -f1)" >> "$GITHUB_OUTPUT"
-      - uses: actions/upload-artifact@v4
+      - uses: actions/upload-artifact@v6
         with:
           name: signing
           retention-days: 1
@@ -52,7 +52,7 @@ jobs:
             cert.der
   lkm:
     needs: prep
-    runs-on: ubuntu-latest
+    runs-on: ubuntu-24.04
     timeout-minutes: 90
     strategy:
       fail-fast: false
@@ -62,7 +62,7 @@ jobs:
       image: ghcr.io/ylarod/ddk-min:${{ matrix.kmi }}-20260828
       options: --privileged
     steps:
-      - uses: actions/checkout@v4
+      - uses: actions/checkout@v5
         with:
           path: fork
       - name: Checkout pinned BakaSU and apply Samsung port
@@ -95,17 +95,17 @@ jobs:
           llvm-strip -d kernelsu.ko
           mkdir -p "$GITHUB_WORKSPACE/out"
           cp kernelsu.ko "$GITHUB_WORKSPACE/out/${{ matrix.kmi }}_kernelsu.ko"
-      - uses: actions/upload-artifact@v4
+      - uses: actions/upload-artifact@v6
         with:
           name: lkm-${{ matrix.kmi }}
           path: ${{ github.workspace }}/out/*_kernelsu.ko
           if-no-files-found: error
   ksud:
     needs: [prep, lkm]
-    runs-on: ubuntu-latest
+    runs-on: ubuntu-24.04
     timeout-minutes: 90
     steps:
-      - uses: actions/checkout@v4
+      - uses: actions/checkout@v5
         with:
           path: fork
       - name: Checkout pinned BakaSU and apply Samsung port
@@ -118,7 +118,7 @@ jobs:
           python3 ../fork/scripts/apply-samsung-jailbreak.py
           python3 ../fork/scripts/apply-samsung-manager.py
           python3 ../fork/scripts/apply-soft-reboot-parser.py
-      - uses: actions/download-artifact@v4
+      - uses: actions/download-artifact@v7
         with:
           pattern: lkm-*
           merge-multiple: true
@@ -154,21 +154,21 @@ jobs:
           git -C upstream rev-parse HEAD > source-bundle/BAKASU_COMMIT.txt
           tar --exclude=.git --exclude=target --exclude=build --exclude=.gradle -czf KitsuSU-samsung-source.tar.gz upstream source-bundle
           python3 fork/scripts/verify-manager-artwork.py --archive KitsuSU-samsung-source.tar.gz
-      - uses: actions/upload-artifact@v4
+      - uses: actions/upload-artifact@v6
         with:
           name: KitsuSU-samsung-source
           path: KitsuSU-samsung-source.tar.gz
-      - uses: actions/upload-artifact@v4
+      - uses: actions/upload-artifact@v6
         with:
           name: ksud
           path: upstream/userspace/ksud/target/aarch64-linux-android/release/ksud
           if-no-files-found: error
   apk:
     needs: [prep, ksud]
-    runs-on: ubuntu-latest
+    runs-on: ubuntu-24.04
     timeout-minutes: 90
     steps:
-      - uses: actions/checkout@v4
+      - uses: actions/checkout@v5
         with:
           path: fork
       - name: Checkout pinned BakaSU
@@ -177,15 +177,15 @@ jobs:
           git -C upstream checkout --detach "$BAKASU_REF"
           cd upstream
           python3 ../fork/scripts/apply-samsung-manager.py
-      - uses: actions/setup-java@v4
+      - uses: actions/setup-java@v5
         with:
           distribution: temurin
           java-version: '21'
-      - uses: gradle/actions/setup-gradle@v4
-      - uses: actions/download-artifact@v4
+      - uses: gradle/actions/setup-gradle@v5
+      - uses: actions/download-artifact@v7
         with:
           name: signing
-      - uses: actions/download-artifact@v4
+      - uses: actions/download-artifact@v7
         with:
           name: ksud
           path: ksud-bin
@@ -224,7 +224,7 @@ jobs:
           grep -i "${{ needs.prep.outputs.cert_hash }}" /tmp/signature.txt
           cp "$APK" KitsuSU-samsung-arm64.apk
           sha256sum KitsuSU-samsung-arm64.apk > KitsuSU-samsung-arm64.apk.sha256
-      - uses: actions/upload-artifact@v4
+      - uses: actions/upload-artifact@v6
         with:
           name: KitsuSU-samsung-arm64
           path: |
