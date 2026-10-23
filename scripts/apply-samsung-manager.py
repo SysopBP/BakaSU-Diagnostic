@@ -203,3 +203,18 @@ status_replace('            BackupRestoreSection(onConfigRestored = onConfigRest
         item {
             BackupRestoreSection(onConfigRestored = onConfigRestored)''')
 status_tab.write_text(text)
+
+# Module Action: capture output before completion and expose errors.
+def patch_action(relative, old, new):
+    path = manager_java / relative
+    content = path.read_text()
+    if content.count(old) != 1:
+        raise SystemExit(f'{path}: module action anchor changed')
+    path.write_text(content.replace(old, new, 1))
+patch_action("data/shell/KsuCli.kt", "        val stdoutCallback: CallbackList<String?> = object : CallbackList<String?>() {\n            override fun onAddElement(s: String?) {\n                onStdout(s ?: \"\")\n            }\n        }\n\n        val stderrCallback: CallbackList<String?> = object : CallbackList<String?>() {\n            override fun onAddElement(s: String?) {\n                onStderr(s ?: \"\")\n            }\n        }\n\n        val result = withNewRootShell(true) {\n            newJob().add(\"${getKsuDaemonPath()} module action $moduleId\")\n                .to(stdoutCallback, stderrCallback).exec()\n        }\n\n        Log.i(\"KernelSU\", \"Module runAction result: $result\")\n\n        return result.isSuccess", "        // CallbackList may post callbacks after exec() returns. Keep capture synchronous\n        // so the action Flow cannot close before its output has been delivered.\n        val stdout = ArrayList<String>()\n        val stderr = ArrayList<String>()\n        val result = withNewRootShell(true) {\n            newJob().add(\"${shellQuote(getKsuDaemonPath())} module action ${shellQuote(moduleId)}\")\n                .to(stdout, stderr).exec()\n        }\n        stdout.forEach(onStdout)\n        stderr.forEach(onStderr)\n        onStdout(\"Exit code: ${result.code}\")\n        Log.i(\"KernelSU\", \"Module runAction result: $result\")\n        return result.isSuccess")
+patch_action("ui/viewmodel/ExecuteModuleActionViewModel.kt", "        if (isError) return\n", "")
+patch_action("ui/viewmodel/ExecuteModuleActionViewModel.kt", "            executeModuleAction(moduleId).collect { update ->", "            appendOutput(\"Running module action: $moduleId\", false)\n            executeModuleAction(moduleId).collect { update ->")
+patch_action("ui/viewmodel/ExecuteModuleActionViewModel.kt", "                        mutableState.update { it.copy(running = false) }", "                        appendOutput(if (update.successful) \"Action completed.\" else \"Action failed. See output above.\", false)\n                        mutableState.update { it.copy(running = false) }")
+patch_action("data/module/ModuleActionRepository.kt", "            }.getOrDefault(false)", "            }.getOrElse { error ->\n                if (error is kotlinx.coroutines.CancellationException) throw error\n                trySend(ModuleActionUpdate.Output(\n                    \"Unable to run module action: ${error.message ?: error.javaClass.simpleName}\",\n                    isError = true,\n                ))\n                false\n            }")
+patch_action("data/module/ModuleActionRepository.kt", "import kotlinx.coroutines.flow.callbackFlow", "import kotlinx.coroutines.flow.callbackFlow\nimport kotlinx.coroutines.flow.buffer")
+patch_action("data/module/ModuleActionRepository.kt", "        awaitClose { task.cancel() }\n    }", "        awaitClose { task.cancel() }\n    }.buffer(kotlinx.coroutines.channels.Channel.UNLIMITED)")
