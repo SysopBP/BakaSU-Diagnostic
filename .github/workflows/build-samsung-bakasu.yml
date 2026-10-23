@@ -1,11 +1,13 @@
 name: Build KitsuSU for Samsung (FragX-compatible)
 on:
   push:
-    branches: [main, 'feat/samsung-jailbreak', 'feat/kitsusu-recovery-controls']
+    branches: [main, 'feat/samsung-jailbreak', 'feat/kitsusu-recovery-controls', 'fix/tablet-soft-reboot-service-parser']
     paths:
       - 'scripts/apply-samsung-jailbreak.py'
       - 'scripts/apply-samsung-manager.py'
       - 'scripts/verify-manager-artwork.py'
+      - 'scripts/*soft-reboot-parser.py'
+      - 'tests/service-list-parser.rs'
       - 'vendor/**'
       - '.github/workflows/build-samsung-bakasu.yml'
   pull_request:
@@ -115,6 +117,7 @@ jobs:
           cd upstream
           python3 ../fork/scripts/apply-samsung-jailbreak.py
           python3 ../fork/scripts/apply-samsung-manager.py
+          python3 ../fork/scripts/apply-soft-reboot-parser.py
       - uses: actions/download-artifact@v4
         with:
           pattern: lkm-*
@@ -130,6 +133,8 @@ jobs:
         with:
           targets: aarch64-linux-android
           components: rust-src
+      - name: Test service-list parser with host Rust harness
+        run: python3 fork/scripts/test-soft-reboot-parser.py --source upstream
       - name: Install cargo-ndk
         run: cargo install cargo-ndk --locked
       - name: Build bootstrap and ksud
