@@ -1,0 +1,6 @@
+{
+  "upstream_tag": "v2.3.0-r18.4",
+  "upstream_commit": "8b65f13f3eff4e9d530c92a92dde6133b0700ae7",
+  "changes": "Shell wrapper and single-KMI packaging only; upstream ELF binaries unchanged",
+  "tests": "Shell syntax and mocked loader state transitions passed; phone installation pending"
+}

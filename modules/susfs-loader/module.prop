@@ -1,0 +1,6 @@
+id=susfs_guard_lkm
+name=KitsuSU SusFS Loader (Samsung preview)
+version=v2.3.0-r18.4-kitsu-preview.1
+versionCode=2026102301
+author=inforcqb (SusFS LKM), SysopBP (loader adaptation); upstream credits in README
+description=Pending activation; Android 16 GKI 6.12 only. Loader only; no rules.
