@@ -1,6 +1,13 @@
 // KitsuSU additions, SysopBP, 2026-10-23. GPL-3.0-or-later.
 package app.kitsusu.manager.ui.screen.main
 
+import androidx.compose.material.icons.Icons
+import androidx.compose.material.icons.filled.Security
+import androidx.compose.material.icons.filled.Tune
+import androidx.compose.material.icons.filled.Shield
+import androidx.compose.material.icons.filled.RestartAlt
+import androidx.compose.material.icons.filled.Refresh
+import androidx.compose.material.icons.filled.PowerSettingsNew
 import androidx.compose.runtime.*
 import androidx.compose.ui.platform.LocalContext
 import androidx.compose.ui.res.stringResource
@@ -54,6 +61,7 @@ internal fun KitsuRecoveryControls() {
     SegmentedColumn(title = stringResource(R.string.kitsu_root_management), content = {
         item {
             SettingsSwitchWidget(
+                icon = Icons.Filled.Security,
                 title = stringResource(R.string.kitsu_susfs_title),
                 description = stringResource(R.string.kitsu_susfs_summary),
                 checked = enabled, enabled = supported && !busy,
@@ -72,6 +80,7 @@ internal fun KitsuRecoveryControls() {
         }
         item {
             SettingsJumpPageWidget(
+                icon = Icons.Filled.Tune,
                 title = stringResource(R.string.kitsu_susfs_status),
                 description = stringResource(status) + if (version.isBlank()) "" else "\n$version",
                 enabled = supported && !busy,
@@ -82,6 +91,7 @@ internal fun KitsuRecoveryControls() {
     SegmentedColumn(title = stringResource(R.string.kitsu_recovery_management), content = {
         item {
             SettingsJumpPageWidget(
+                icon = Icons.Filled.Shield,
                 title = stringResource(R.string.kitsu_vaultguard),
                 description = stringResource(R.string.kitsu_vaultguard_summary),
                 onClick = {
@@ -99,6 +109,11 @@ internal fun KitsuRecoveryControls() {
         )) {
             item {
                 SettingsJumpPageWidget(
+                    icon = when (action) {
+                        0 -> Icons.Filled.RestartAlt
+                        1 -> Icons.Filled.Refresh
+                        else -> Icons.Filled.PowerSettingsNew
+                    },
                     title = stringResource(title), description = stringResource(description),
                     enabled = !busy && (action != 2 || lkm),
                     onClick = {
