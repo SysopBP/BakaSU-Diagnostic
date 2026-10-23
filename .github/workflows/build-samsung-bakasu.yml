@@ -20,6 +20,7 @@ defaults:
     shell: bash
 env:
   BAKASU_REF: 239e1e8871b8fcd51a6e5b3002e0ba522fdd99fb
+  SUSFS_REF: 8ab4500ffc3f13ec6ded79d7ab13e2e8147a1879
   KSU_PACKAGE_NAME: app.kitsusu.manager
   KEYSTORE_ALIAS: fragx
   KEYSTORE_PASS: android
@@ -231,3 +232,278 @@ jobs:
             KitsuSU-samsung-arm64.apk
             KitsuSU-samsung-arm64.apk.sha256
           if-no-files-found: error
+  susfs-lkm:
+    name: susfs_guard_lkm (${{ matrix.kmi }})
+    runs-on: ubuntu-24.04
+    timeout-minutes: 45
+    strategy:
+      fail-fast: false
+      matrix:
+        include:
+        - kmi: android12-5.10
+          image: ghcr.io/ylarod/ddk-min:android12-5.10-20260828@sha256:272ada1e61c525116032246df2a790d1ccec1804b7a9e0b09203c5e650dcb78e
+        - kmi: android13-5.10
+          image: ghcr.io/ylarod/ddk-min:android13-5.10-20260828@sha256:e5ce038ba38408ad26aae1f2622cfb44dfbf6634b025bf197aa08beac0794f5b
+        - kmi: android13-5.15
+          image: ghcr.io/ylarod/ddk-min:android13-5.15-20260828@sha256:9e68cd9fcab748584755d31ba88ef134efc938dbde17f258c2652315f6cd81cd
+        - kmi: android14-5.15
+          image: ghcr.io/ylarod/ddk-min:android14-5.15-20260828@sha256:bbf697a8fe995704268eef710921c9d2ea4f146954690d7ea97887f3a4014a6a
+        - kmi: android14-6.1
+          image: ghcr.io/ylarod/ddk-min:android14-6.1-20260828@sha256:1dd6ac340b627a90a4031d6d0df6b129d8cc949b139fb56032c898f023d3d5d3
+        - kmi: android15-6.6
+          image: ghcr.io/ylarod/ddk-min:android15-6.6-20260828@sha256:51159bc935c75a282fc65bc87e02f16bd098d1cdf55dc558c4fdd0fcf7a132e2
+        - kmi: android16-6.12
+          image: ghcr.io/ylarod/ddk-min:android16-6.12-20260828@sha256:fd3ec5cc71d7f2716212e9df8d5674a9afe68fb769282fcac87b83f207f949ee
+        - kmi: android17-6.18
+          image: ghcr.io/ylarod/ddk-min:android17-6.18-20260828@sha256:fb8b66200bf402cf65a751060fc1aa29524b9fa8840feef16c7b196a4f3f0e6e
+    container:
+      image: ${{ matrix.image }}
+      options: --privileged
+    steps:
+    - name: Checkout pinned susfs4ksu-lkm
+      uses: actions/checkout@v5
+      with:
+        repository: inforcqb/susfs4ksu-lkm
+        ref: ${{ env.SUSFS_REF }}
+        path: susfs
+    - name: Build susfs_guard_lkm.ko
+      working-directory: susfs
+      run: |
+        set -euo pipefail
+        if [ -z "${KDIR:-}" ] || [ ! -f "$KDIR/Makefile" ]; then
+          echo "::error::KDIR ('${KDIR:-unset}') is not a prepared kernel build tree for ${{ matrix.kmi }}"
+          exit 1
+        fi
+        make -k -C "$KDIR" M="$PWD/kernel" ARCH=arm64 CC=clang LLVM=1 LLVM_IAS=1 modules -j"$(nproc)"
+        test -s kernel/susfs_guard_lkm.ko
+        mkdir -p "$GITHUB_WORKSPACE/out"
+        cp kernel/susfs_guard_lkm.ko "$GITHUB_WORKSPACE/out/susfs_guard_lkm-${{ matrix.kmi }}.ko"
+    - name: Assert load-critical artifact properties
+      working-directory: susfs
+      run: |
+        set -euo pipefail
+        f=kernel/susfs_guard_lkm.ko
+        test -s "$f"
+        command -v nm >/dev/null 2>&1 || { echo "::error::nm is missing from this image"; exit 1; }
+        modinfo "$f" | grep -E 'vermagic|srcversion' || true
+        readelf -p .modinfo "$f" > modinfo.txt
+        test -s modinfo.txt || { echo "::error::readelf produced nothing for $f"; exit 1; }
+        if ! grep -q 'import_ns' modinfo.txt; then
+          echo "::error::no import_ns - kern_path/ihold/override_creds/revert_creds will be refused with -EINVAL"
+          exit 1
+        fi
+        nm -u "$f" > undefined-symbols.txt
+        test -s undefined-symbols.txt || { echo "::error::nm reported no undefined symbols - it did not read $f"; exit 1; }
+        echo "undefined symbols: $(wc -l < undefined-symbols.txt)"
+        if grep -qE '(^| )(kallsyms_lookup_name|kallsyms_lookup|kallsyms_lookup_size_offset|kallsyms_on_each_symbol|kallsyms_on_each_match_symbol)$' undefined-symbols.txt; then
+          echo "::error::$f links kallsyms_* instead of bootstrapping them at runtime"
+          grep -E '(^| )(kallsyms_lookup_name|kallsyms_lookup|kallsyms_lookup_size_offset|kallsyms_on_each_symbol|kallsyms_on_each_match_symbol)$' undefined-symbols.txt
+          exit 1
+        fi
+        if grep -qw '__stack_chk_guard' undefined-symbols.txt; then
+          echo "::error::$f references __stack_chk_guard"
+          exit 1
+        fi
+    - name: CFI call-site gate
+      working-directory: susfs
+      run: |
+        set -euo pipefail
+        if ! command -v python3 >/dev/null 2>&1; then
+          echo "::error::no python3 in this image - the CFI gate cannot run, and a skipped gate is not a pass"
+          exit 1
+        fi
+        test -s tools/cfi_sites.py
+        python3 tools/cfi_sites.py --allow "init_module,susfs_layers_down,susfs_tw_func,susfs_watch_freeing" kernel/susfs_guard_lkm.ko
+    - uses: actions/upload-artifact@v6
+      with:
+        name: susfs-lkm-${{ matrix.kmi }}
+        path: ${{ github.workspace }}/out/*.ko
+        if-no-files-found: error
+  susfs-tools:
+    name: susfs loader
+    runs-on: ubuntu-24.04
+    timeout-minutes: 15
+    container:
+      image: ghcr.io/ylarod/ddk-min:android14-6.1-20260828@sha256:1dd6ac340b627a90a4031d6d0df6b129d8cc949b139fb56032c898f023d3d5d3
+      options: --privileged
+    steps:
+    - name: Checkout pinned susfs4ksu-lkm
+      uses: actions/checkout@v5
+      with:
+        repository: inforcqb/susfs4ksu-lkm
+        ref: ${{ env.SUSFS_REF }}
+        path: susfs
+    - name: Build susfs_insmod
+      working-directory: susfs
+      run: |
+        set -euo pipefail
+        clang --target=aarch64-linux-gnu -O2 -nostdlib -static-pie \
+              -fno-stack-protector -fno-builtin -fuse-ld=lld -Wl,-e,_start \
+              -o /tmp/susfs_insmod tools/susfs_insmod.c
+        file /tmp/susfs_insmod
+        test -s /tmp/susfs_insmod
+    - uses: actions/upload-artifact@v6
+      with:
+        name: susfs_insmod
+        path: /tmp/susfs_insmod
+        if-no-files-found: error
+  susfs-module:
+    name: susfs flashable module
+    needs:
+    - susfs-lkm
+    - susfs-tools
+    runs-on: ubuntu-24.04
+    timeout-minutes: 15
+    steps:
+    - name: Checkout pinned susfs4ksu-lkm
+      uses: actions/checkout@v5
+      with:
+        repository: inforcqb/susfs4ksu-lkm
+        ref: ${{ env.SUSFS_REF }}
+        path: susfs
+    - uses: actions/download-artifact@v7
+      with:
+        pattern: susfs-lkm-*
+        path: ko
+    - uses: actions/download-artifact@v7
+      with:
+        name: susfs_insmod
+        path: bin
+    - name: Name the modules after their KMI and check every one
+      run: |
+        set -euo pipefail
+        cd ko
+        for d in */; do
+          kmi="${d%/}"; kmi="${kmi#susfs-lkm-}"
+          mv "$d/susfs_guard_lkm-$kmi.ko" "susfs_guard_lkm-$kmi.ko"
+          rmdir "$d"
+        done
+        for kmi in android12-5.10 android13-5.10 android13-5.15 android14-5.15 \
+                   android14-6.1 android15-6.6 android16-6.12 android17-6.18; do
+          if [ ! -s "susfs_guard_lkm-$kmi.ko" ]; then
+            echo "::error::expected susfs_guard_lkm-$kmi.ko is missing or empty"
+            ls -l
+            exit 1
+          fi
+        done
+        n=$(ls -1 *.ko | wc -l)
+        if [ "$n" -ne 8 ]; then
+          echo "::error::expected exactly 8 .ko files, found $n"
+          ls -l
+          exit 1
+        fi
+        echo "all 8 expected KMI modules present"
+        ls -l
+    - uses: actions/setup-python@v6
+      with:
+        python-version: '3.12'
+    - name: Write the pinned image list
+      run: |
+        cat > ddk-images.json <<'JSON'
+        [
+          "ghcr.io/ylarod/ddk-min:android12-5.10-20260828@sha256:272ada1e61c525116032246df2a790d1ccec1804b7a9e0b09203c5e650dcb78e",
+          "ghcr.io/ylarod/ddk-min:android13-5.10-20260828@sha256:e5ce038ba38408ad26aae1f2622cfb44dfbf6634b025bf197aa08beac0794f5b",
+          "ghcr.io/ylarod/ddk-min:android13-5.15-20260828@sha256:9e68cd9fcab748584755d31ba88ef134efc938dbde17f258c2652315f6cd81cd",
+          "ghcr.io/ylarod/ddk-min:android14-5.15-20260828@sha256:bbf697a8fe995704268eef710921c9d2ea4f146954690d7ea97887f3a4014a6a",
+          "ghcr.io/ylarod/ddk-min:android14-6.1-20260828@sha256:1dd6ac340b627a90a4031d6d0df6b129d8cc949b139fb56032c898f023d3d5d3",
+          "ghcr.io/ylarod/ddk-min:android15-6.6-20260828@sha256:51159bc935c75a282fc65bc87e02f16bd098d1cdf55dc558c4fdd0fcf7a132e2",
+          "ghcr.io/ylarod/ddk-min:android16-6.12-20260828@sha256:fd3ec5cc71d7f2716212e9df8d5674a9afe68fb769282fcac87b83f207f949ee",
+          "ghcr.io/ylarod/ddk-min:android17-6.18-20260828@sha256:fb8b66200bf402cf65a751060fc1aa29524b9fa8840feef16c7b196a4f3f0e6e"
+        ]
+        JSON
+    - name: Pack the module
+      working-directory: susfs
+      run: |
+        set -euo pipefail
+        tag="$(printf '%s' "$GITHUB_REF_NAME" | tr '/' '-')-$(printf '%s' "$SUSFS_REF" | cut -c1-7)"
+        mkdir -p dist
+        python3 tools/pack_module.py --ko-dir ../ko --insmod ../bin/susfs_insmod \
+          --tag "$tag" --sha "$SUSFS_REF" --run-id "$GITHUB_RUN_ID" \
+          --ddk-images ../ddk-images.json \
+          --out "dist/susfs_guard_lkm-module-$tag-arm64.zip"
+        test -s "dist/susfs_guard_lkm-module-$tag-arm64.zip"
+        ls -l dist
+    - name: Rewrite provenance.json INSIDE the zip - source vs build
+      working-directory: susfs
+      run: |
+        set -euo pipefail
+        python3 - <<'PY'
+        import glob, json, os, zipfile
+        zips = sorted(glob.glob("dist/*.zip"))
+        if len(zips) != 1:
+            raise SystemExit(f"expected exactly one zip in dist/, found {len(zips)}")
+        zpath = zips[0]
+        env = os.environ
+        target = None
+        with zipfile.ZipFile(zpath) as zin:
+            for n in zin.namelist():
+                if n.rsplit("/", 1)[-1] == "provenance.json":
+                    target = n
+                    break
+            original = json.loads(zin.read(target)) if target else {}
+            entries = [(i, zin.read(i.filename)) for i in zin.infolist()]
+        patched = {
+            "schema": "kitsusu-susfs-module-provenance/1",
+            "note": ("source.* identifies the SUSFS source this module was built from. "
+                     "build.* identifies the workflow that produced this zip. "
+                     "packer_original is the packer's own record verbatim: its github_sha "
+                     "is the source commit, and the workflow path it carries is upstream's, "
+                     "not ours."),
+            "source": {
+                "repository": "inforcqb/susfs4ksu-lkm",
+                "commit": env["SUSFS_REF"],
+            },
+            "build": {
+                "repository": env["GITHUB_REPOSITORY"],
+                "commit": env["GITHUB_SHA"],
+                "ref": env["GITHUB_REF"],
+                "workflow": env["GITHUB_WORKFLOW"],
+                "workflow_ref": env["GITHUB_WORKFLOW_REF"],
+                "run_id": env["GITHUB_RUN_ID"],
+                "run_url": f'{env["GITHUB_SERVER_URL"]}/{env["GITHUB_REPOSITORY"]}/actions/runs/{env["GITHUB_RUN_ID"]}',
+                "bakasu_ref": env.get("BAKASU_REF", ""),
+            },
+            "packer_original": original,
+        }
+        blob = json.dumps(patched, indent=2).encode()
+        tmp = zpath + ".new"
+        with zipfile.ZipFile(tmp, "w", zipfile.ZIP_DEFLATED) as zout:
+            for info, payload in entries:
+                if info.filename == target:
+                    payload = blob
+                zout.writestr(info, payload)
+            if target is None:
+                zout.writestr("provenance.json", blob)
+        os.replace(tmp, zpath)
+        with zipfile.ZipFile(zpath) as z:
+            got = json.loads(z.read(target or "provenance.json"))
+        assert got["source"]["commit"] == env["SUSFS_REF"], "source commit not recorded"
+        assert got["build"]["commit"] == env["GITHUB_SHA"], "build commit not recorded"
+        assert got["build"]["repository"] == env["GITHUB_REPOSITORY"], "build repo not recorded"
+        print(json.dumps(got, indent=2))
+        print("rewrote provenance.json inside", zpath)
+        PY
+    - name: Write a convenience copy beside the zip
+      run: |
+        set -euo pipefail
+        cat > susfs/dist/PROVENANCE.txt <<EOF
+        provenance.json INSIDE the zip is authoritative and separates source from build.
+        This is a convenience copy for reading without unzipping.
+
+        source repo    : inforcqb/susfs4ksu-lkm
+        source commit  : $SUSFS_REF
+        build repo     : $GITHUB_REPOSITORY
+        build commit   : $GITHUB_SHA
+        build ref      : $GITHUB_REF
+        build workflow : $GITHUB_WORKFLOW ($GITHUB_WORKFLOW_REF)
+        run            : $GITHUB_SERVER_URL/$GITHUB_REPOSITORY/actions/runs/$GITHUB_RUN_ID
+        bakasu ref     : $BAKASU_REF
+        EOF
+        cat susfs/dist/PROVENANCE.txt
+    - uses: actions/upload-artifact@v6
+      with:
+        name: susfs_guard_lkm-module-arm64
+        path: |
+          susfs/dist/*.zip
+          susfs/dist/PROVENANCE.txt
+        if-no-files-found: error
