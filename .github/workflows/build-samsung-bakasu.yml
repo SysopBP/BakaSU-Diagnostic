@@ -176,8 +176,41 @@ jobs:
           name: ksud
           path: upstream/userspace/ksud/target/aarch64-linux-android/release/ksud
           if-no-files-found: error
+  manager-check:
+    name: Manager formatting, lint and compilation
+    runs-on: ubuntu-24.04
+    timeout-minutes: 90
+    steps:
+      - uses: actions/checkout@v5
+        with:
+          path: fork
+      - name: Checkout and adapt reviewed manager
+        run: |
+          git clone https://github.com/Baka-SU/BakaSU.git upstream
+          git -C upstream checkout --detach "$BAKASU_REF"
+          python3 fork/scripts/apply-upstream-series.py --source upstream
+          cd upstream
+          python3 ../fork/scripts/apply-samsung-manager.py
+      - uses: actions/setup-java@v5
+        with:
+          distribution: temurin
+          java-version: '21'
+      - uses: gradle/actions/setup-gradle@v5
+      - name: Build manager APK
+        working-directory: upstream/manager
+        run: |
+          chmod +x gradlew
+          # Restore the manager build mode used by the phone-tested working APK.
+          ./gradlew spotlessApply --no-daemon --no-configuration-cache
+          ./gradlew spotlessCheck :app:lintDebug :app:assembleDebug --stacktrace --no-daemon
+          ./gradlew assembleRelease --stacktrace --no-daemon
+      - uses: actions/upload-artifact@v6
+        with:
+          name: manager-unsigned-debug
+          path: upstream/manager/app/build/outputs/apk/debug/*.apk
+          if-no-files-found: error
   apk:
-    needs: [prep, ksud]
+    needs: [prep, ksud, manager-check]
     runs-on: ubuntu-24.04
     timeout-minutes: 90
     steps:
@@ -203,14 +236,10 @@ jobs:
         with:
           name: ksud
           path: ksud-bin
-      - name: Build manager APK
-        working-directory: upstream/manager
-        run: |
-          chmod +x gradlew
-          # Restore the manager build mode used by the phone-tested working APK.
-          ./gradlew spotlessApply --no-daemon --no-configuration-cache
-          ./gradlew spotlessCheck :app:lintDebug :app:assembleDebug --stacktrace --no-daemon
-          ./gradlew assembleRelease --stacktrace --no-daemon
+      - uses: actions/download-artifact@v7
+        with:
+          name: manager-unsigned-debug
+          path: upstream/manager/app/build/outputs/apk/debug
       - name: Stage daemon and repack
         working-directory: upstream
         run: |
