@@ -1,0 +1,66 @@
+6803643e19e2e6e8287f96461aabb93bdd6c47fa | Wang Han | fix(manager): Unexport magica receiver (https://github.com/tiann/KernelSU/pull/3747)
+325265c53425648552560ef5c625aced6e15534d | LoveSy | kernel: Add Android riscv64 support with LKM (https://github.com/tiann/KernelSU/pull/3750)
+d7f199613d663755883f05c49d698f0e50fea637 | 5ec1cff | ksud: use waitsys to wait when soft reboot (https://github.com/tiann/KernelSU/pull/3754)
+4644540826165c36263f797360ed7fdb22489fa3 | YC酱luyancib | ci,ksubot: use self-host bot API
+5dd1864d70ce416598920cd4cc7cd274b1dfebce | AlexLiuDev233 | ci: refine rust cache
+eb9732ec86dfa559aeaebc1946c032c6a19fcc01 | YC酱luyancib | ksubot: split commit with `------`
+91157d27645756049428d78896f5e499b8bd56db | 5ec1cff | refactor(ksud): update waitsys and refactor logic (https://github.com/tiann/KernelSU/pull/3755)
+0e4698951b8e0e1cb997e46f2049c691869a4f45 | luyanci | ksubot: fix commit msg
+6ce433809b345410152affdec3b61efe1fe3f928 | YC酱luyancib | ksud: fix waitsys not avaliable in arm
+20756bfbc08499f6daa91b562d7bd30075c531b0 | Tools-cx-app | ksud: remove multithread analysing boot in slot_info
+f6513993fb6dde11457bb7bf183cb3868dbb069d | AlexLiuDev233 | kernel: synchronization for track_throne in pkg_observer
+fedfbb2d3e9a74069baa20dca97a7608e8734465 | Tools-cx-app | ksud: bail directly when boot image is empty or parse failed
+fa8311f632a215b5381ec644627c6198d1e8a13e | Tools-cx-app | ksud: fmt
+3b3c5496f58f878636fb564b732d7dc98d805b24 | dependabot[bot] | build(deps): bump the crates group in /userspace/ksud with 10 updates (#441)
+f228776b253b8eaa2d48bb1848c2d5947446ab98 | dependabot[bot] | manager: bump the maven group across 1 directory with 7 updates (#440)
+94dd3c93c2053a84fd752df6eb85db99b7d70ab8 | Weblate (bot) | manager: update translations from Weblate (#434)
+c4bdcaae023f8318e85b0782cf534fca4bc8aa62 | AlexLiuDev233 | kernel: don't path_put when 3.6- in dentry_open
+83850e8e93c5f7cfaec69cf03707f13e799df36a | Weblate (bot) | manager: update translations from Weblate (#444)
+e96a96362945621c12289ddacbf0f8fb82e349e4 | renovate[bot] | ci: Configure Renovate (#443)
+bd142a3cabbc6b4ec41fde4e7458b351629d40bd | renovate[bot] | deps: Update Rust crate cc to v1.5.1 (#447)
+542f9061d6c0123eafdc2ade61db98e1ae3b2e1c | YC酱luyancib | ci: Do not build telegram-bot-api when in pr or workflow_call
+72fe0d0c9d2738f175eb296167ee061fcd3e0dbf | renovate[bot] | manager: Update maven group in manager (#446)
+3a2745f78ab68e61c02a0681463021952083ec8c | renovate[bot] | chore: migrate Renovate config (#449)
+34210a4dec297cb48ce4bfa1c5ba50a2f7d22641 | YC酱luyancib | ci: Do not ignore libcxx update
+b0fa24df91674e02e8fba29ad31ddff0174456ca | AlexLiuDev233 | kernel: escape to root when reading allowlist
+59c42e882835cf8a115b72b14c1c7805fe8b577d | renovate[bot] | ksud: Update Rust crate libc to v0.2.190 (#453)
+0357c65f53f7682ba69d548d6612da557ffc766f | renovate[bot] | deps: Update Rust crate cc to v1.6.0 (#454)
+80c0e190d044d974be82b6f3355242e67acd8d9a | 5ec1cff | feat(ksud): add timeout for boot stage scripts(https://github.com/tiann/KernelSU/pull/3797)
+f397410c7da5f2b85e769b64992f8868cac990ba | Wang Han | fix(kernel): Fix avtab removal length calculation and xperms update
+75de877b5d920609a7d920a92380779d9d0c01a8 | AlexLiuDev233 | manager: fix hang in splashscreen and hang in webui start (#439)
+4c5c8cedaf3cecf297f9b529362e529f506e6891 | AlexLiuDev233 | manager: support xz compression modules
+8770c7e324a22895703c4916b8a16520e0b81c79 | Wang Han | fix(kernel): Avoid repeatedly triggering service stage (https://github.com/tiann/KernelSU/pull/3800)
+97c102ba05ee2915390cacae6d11e1727d6ca350 | AlexLiuDev233 | treewide: rename project (#461)
+9dbce02e511ea6b6305a238b84e456f6a92e1d0b | AlexLiuDev233 | kernel, userspace: don't add repo name in full name by default and announce BAKASU instead of KSU_SUKISU in module scripts
+9fc9b9c66cadb8e5face8e1cfaf6ef74ae915dd8 | fhgffy | ksud: Scan APK comments up to the ZIP length limit (https://github.com/tiann/KernelSU/pull/3802)
+63268b9bd879079311ad8d9e96c6ab93a8b42251 | fhgffy | ksud: Skip KMI detection for config-only patches(https://github.com/tiann/KernelSU/pull/3803)
+55a531d02641e7d47798c1bd2e6223d3df2603ff | AlexLiuDev233 | manager: cleanup
+bbcdc0d923ed66f0eab352545863cff767d5d906 | YuKongA | manager: replace HanziToPinyin with icu transliteration
+c2ef226653f07967d8276bd2f3dfd31a1bab35cb | chise | manager: don't offer kernel install in jailbreak mode
+157eaeeac0f5f2cb8f99ec459bd26328fe2ba54d | AlexLiuDev233 | manager: don't mark prevent_background_refresh
+e5423590bec3e24daffa4e9555c9592071319c68 | AlexLiuDev233 | Revert "manager: replace HanziToPinyin with icu transliteration"
+61e2ce83055e015e97e1e0f5b303b060b6c6a01f | renovate[bot] | manager: Update maven group in manager (#462)
+c8dc617dd7e19630bc5f39f678cd93de798559d2 | u9521 | manager: refactor intent handling and introduce URL schema
+1bfed00f597e65700d70fee0feb1d424fc21a2e5 | AlexLiuDev233 | manager: fix normal webui can not open
+bede8a4d28ef86526688de251ebf47ca0adc2b5d | Weblate (bot) | manager: update translations from Weblate (#457)
+c9246641b9eee8b9986050e8bf1832f88da880c2 | Weblate (bot) | manager: update translations from Weblate (#599)
+373303c525d05c8b47801305f506ef9124dbd6e6 | AlexLiuDev233 | manager: improve theme initialization and navigation behavior
+ba8cfa502ebe9d84c0fe79928f07b0738c5a2c55 | 5ec1cff | kernel: fix sidtab detection (https://github.com/tiann/KernelSU/pull/3873)
+8450dd287ef6ee25ca2b6b858b43c9354c73060c | LoveSy | kernel: pkg_observer: defer track_throne to task_work (https://github.com/tiann/KernelSU/pull/3871)
+969de3d0ce65d2d75e5a2f6c548d9e14817ef459 | Wang Han | fix(kernel): Keep original permission check sequence
+5b76b884c75f729a220bb317aa4a4fc78f0e0e9c | renovate[bot] | deps: Update Rust crate in ksud (#602)
+48fa4bb7ec8bddb8ea932a8c9be0877f89a1fa73 | AlexLiuDev233 | kernel: suspend susfs build
+9097b1a1c6c889756201bbc5713a84a9b23f7908 | renovate[bot] | deps: Update cargo group in ksud  (#615)
+fa12ffde8244008e9afdb7ac0c1bb1bc1b06b95a | 5ec1cff | kernel: fix time side-channel detection in selinux hide (https://github.com/tiann/KernelSU/pull/3877)
+f6cb7e70c10ebde149f3121ae68b945514fd0801 | Weblate (bot) | manager: update translations from Weblate (#603)
+f4435f007b16f61705089ff982e3f981a6017979 | renovate[bot] | deps: Update cargo group in ksud (#617)
+648144087efd32f5fe68982e8cbf5efc1576038a | AlexLiuDev233 | kernel: don't process execve for su when ksud does not exist (#597)
+d7260ca1e5c128061122924d0d48754e361e135c | xxtvrxx233 | kernel: check context_add_hash before operate sidtab when possible (#623)
+8748525c89a649c6d4410024438747e0e320ae78 | Tools-cx-app | renovate: ignore prettyplease
+2489b38582a08fee7b586d05185da5e5d12c6a5c | renovate[bot] | deps: Update Rust crate libc to v0.2.191 (#627)
+522081c5b1c58587c4c743242eecf445ccebed5d | AlexLiuDev233 | kernel: compat for 32bit userspace on 64bit kernel (#612)
+b2c595ddfa64b685e5a144ad37b7c95f912fb92a | Weblate (bot) | manager: update translations from Weblate (#619)
+896e8981e0ed76ec14d1dcb39ab793438b304886 | YC酱luyancib | manager: fix monet and opt performance (#614)
+7c383cfeef3a2ac450f2f1273dae74bd50356d31 | AlexLiuDev233 | manager, ksud: refine flashing flow and simplify AnyKernel3 execution (#630)
+dac2d186406a0d2b0ce3c67cad5a1fa1adbf9f4d | Nguyễn Xuân Bách | manager: support multiple module repositories, one-shot scripts and other minimal fixes (#600)
+39faf94a2d4a40d48093398bafcde649916edbc1 | Weblate (bot) | manager: update translations from Weblate (#629)

@@ -8,7 +8,7 @@ import tempfile
 parser = argparse.ArgumentParser()
 parser.add_argument('--source', type=Path, required=True)
 args = parser.parse_args()
-source = (args.source / 'userspace/ksud/src/android/soft_reboot.rs').read_text()
+source = (args.source / 'userspace/ksud/src/android/soft_reboot/samsung_services.rs').read_text()
 start = source.index('fn parse_service_list(')
 end = source.index('fn parse_service_pid(', start)
 tests = (Path(__file__).resolve().parents[1] / 'tests/service-list-parser.rs').read_text()

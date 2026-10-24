@@ -1,5 +1,5 @@
 #!/usr/bin/env python3
-"""Apply diabl0w Samsung compat integration to BakaSU v4.2.0-rc3.
+"""Apply diabl0w Samsung compat integration to the reviewed BakaSU snapshot.
 Run from a clean upstream checkout after copying vendor/kernel/compat files.
 All anchors are validated in memory before any source file is changed.
 """
@@ -11,7 +11,7 @@ def edit(name, old, new):
     p = Path('kernel') / name
     s = changes.get(p, p.read_text())
     if s.count(old) != 1:
-        raise SystemExit(f'{p}: expected one anchor: {old[:80]!r}, got {s.count(old)}; use clean v4.2.0-rc3')
+        raise SystemExit(f'{p}: expected one anchor: {old[:80]!r}, got {s.count(old)}; use the pinned reviewed source')
     changes[p] = s.replace(old, new, 1)
 
 def include(name):
@@ -27,7 +27,7 @@ for name in ['jailbreak.h', 'jailbreak.c', 'defex.c', 'kdp.c', 'rkp.c']:
     if not (Path('kernel/compat') / name).is_file():
         raise SystemExit(f'Missing kernel/compat/{name}')
 # Brand the version returned by the driver; keep version/commit identifiers intact.
-edit('Kbuild', 'REPO_NAME := ReSukiSU\n', 'REPO_NAME := KitsuSU\n')
+edit('Kbuild', 'REPO_NAME := BakaSU\n', 'REPO_NAME := KitsuSU\n')
 edit('Kbuild', 'kernelsu-objs += compat/kernel_compat.o\n',
      'kernelsu-objs += compat/kernel_compat.o\nkernelsu-objs += compat/jailbreak.o compat/defex.o compat/kdp.o compat/rkp.o\n')
 include('core/init.c')

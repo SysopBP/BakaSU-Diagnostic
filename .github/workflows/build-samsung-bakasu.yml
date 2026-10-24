@@ -12,6 +12,7 @@ on:
       - 'vendor/**'
       - 'patches/bakasu/**'
       - 'scripts/apply-upstream-series.py'
+      - 'scripts/verify-samsung-integration.py'
       - '.github/workflows/build-samsung-bakasu.yml'
   pull_request:
     branches: [main, 'feat/samsung-jailbreak']
@@ -22,7 +23,7 @@ defaults:
   run:
     shell: bash
 env:
-  BAKASU_REF: 239e1e8871b8fcd51a6e5b3002e0ba522fdd99fb
+  BAKASU_REF: 39faf94a2d4a40d48093398bafcde649916edbc1
   SUSFS_REF: 8ab4500ffc3f13ec6ded79d7ab13e2e8147a1879
   KSU_PACKAGE_NAME: app.kitsusu.manager
   KEYSTORE_ALIAS: fragx
@@ -124,6 +125,7 @@ jobs:
           python3 ../fork/scripts/apply-samsung-jailbreak.py
           python3 ../fork/scripts/apply-samsung-manager.py
           python3 ../fork/scripts/apply-soft-reboot-parser.py
+          python3 ../fork/scripts/verify-samsung-integration.py --source .
       - uses: actions/download-artifact@v7
         with:
           pattern: lkm-*
@@ -149,6 +151,8 @@ jobs:
           set -euo pipefail
           clang --target=aarch64-linux-gnu -c -nostdlib -o userspace/ksud/.lkm_image_bootstrap.o userspace/ksud/src/lkm_image_bootstrap.S
           cd userspace/ksud
+          readelf -h bin/aarch64/waitsys | grep -q AArch64
+          test -s bin/aarch64/waitsys
           cargo ndk b -P 26 -t aarch64-linux-android -r -Z build-std-features="optimize_for_size" -Z trim-paths
           test -s target/aarch64-linux-android/release/ksud
       - name: Bundle corresponding modified source and licenses
@@ -159,6 +163,8 @@ jobs:
           cp -a fork/vendor fork/scripts fork/patches fork/.github source-bundle/
           sha256sum fork/patches/bakasu/*.patch > source-bundle/UPSTREAM_PATCH_SHA256SUMS.txt
           git -C upstream rev-parse HEAD > source-bundle/BAKASU_COMMIT.txt
+          git -C upstream log --reverse --format='%H %s' 239e1e8871b8fcd51a6e5b3002e0ba522fdd99fb..HEAD > source-bundle/UPSTREAM_COMMITS.txt
+          cp -a fork/docs source-bundle/
           tar --exclude=.git --exclude=target --exclude=build --exclude=.gradle -czf KitsuSU-samsung-source.tar.gz upstream source-bundle
           python3 fork/scripts/verify-manager-artwork.py --archive KitsuSU-samsung-source.tar.gz
       - uses: actions/upload-artifact@v6
@@ -202,7 +208,9 @@ jobs:
         run: |
           chmod +x gradlew
           # Restore the manager build mode used by the phone-tested working APK.
-          ./gradlew :app:assembleDebug --stacktrace --no-daemon
+          ./gradlew spotlessApply --no-daemon --no-configuration-cache
+          ./gradlew spotlessCheck :app:lintDebug :app:assembleDebug --stacktrace --no-daemon
+          ./gradlew assembleRelease --stacktrace --no-daemon
       - name: Stage daemon and repack
         working-directory: upstream
         run: |

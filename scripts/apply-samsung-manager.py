@@ -11,50 +11,50 @@ def edit(name, old, new):
     changes[p] = text.replace(old, new, 1)
 
 edit('manager/build.gradle.kts',
-     'extra["defaultManagerAppName"] = if (extra["isPrBuild"] == true) "ReSukiSU PR" else "ReSukiSU"',
+     'extra["defaultManagerAppName"] = if (extra["isPrBuild"] == true) "BakaSU PR" else "BakaSU"',
      'extra["defaultManagerAppName"] = "KitsuSU"')
 app = 'manager/app/build.gradle.kts'
 edit(app, 'buildConfigField("boolean", "IS_PR_BUILD", isPrBuild.toString())',
      'buildConfigField("boolean", "IS_PR_BUILD", isPrBuild.toString())\n        // Samsung artifacts must not offer incompatible upstream manager updates.\n        buildConfigField("boolean", "SAMSUNG_BUILD", "true")')
-edit(app, '"ReSukiSU_${managerVersionName}_${managerVersionCode}"',
+edit(app, '"BakaSU_${managerVersionName}_$managerVersionCode"',
      '"KitsuSU_${managerVersionName}_${managerVersionCode}"')
-home = 'manager/app/src/main/java/com/resukisu/resukisu/ui/screen/main/HomePage.kt'
+home = 'manager/app/src/main/java/org/bakasu/bakasu/ui/screen/main/HomePage.kt'
 edit(home, 'import androidx.compose.material3.LargeFlexibleTopAppBar',
      'import androidx.compose.material3.TopAppBar')
 edit(home, '    LargeFlexibleTopAppBar(', '    TopAppBar(')
 # A custom wallpaper should continue behind the compact header even without blur.
 # Patch only HomePage's two app-bar color branches; preserve solid default themes.
 home_source = Path(home).read_text()
-color_anchor = 'if (themeConfig.isEnableBlur)\n                    Color.Transparent'
+color_anchor = 'if (themeConfig.isEnableBlur) {'
 if home_source.count(color_anchor) != 2:
     raise SystemExit(f'{home}: expected two app-bar color branches')
 changes[Path(home)] = changes[Path(home)].replace(
     color_anchor,
-    'if (themeConfig.isEnableBlur || themeConfig.customBackgroundUri != null)\n                    Color.Transparent',
+    'if (themeConfig.isEnableBlur || themeConfig.customBackgroundUri != null) {',
 )
 edit(home, 'if (!uiState.systemStatus.isOfficialSignature) {',
      'if (!uiState.systemStatus.isOfficialSignature &&\n                        !(BuildConfig.SAMSUNG_BUILD && uiState.systemStatus.isManager)) {')
 # Keep the phone-tested debug configuration; omit its persistent home warning.
 edit(home, 'if (BuildConfig.DEBUG) {',
      'if (BuildConfig.DEBUG && !BuildConfig.SAMSUNG_BUILD) {')
-usecase = 'manager/app/src/main/java/com/resukisu/resukisu/domain/usecase/CheckManagerUpdateUseCase.kt'
-edit(usecase, 'import com.resukisu.resukisu.data.update.ManagerUpdateRepository',
-     'import com.resukisu.resukisu.BuildConfig\nimport com.resukisu.resukisu.data.update.ManagerUpdateRepository')
-edit(usecase, '        when (channel) {',
-     '        if (BuildConfig.SAMSUNG_BUILD) null else when (channel) {')
+usecase = 'manager/app/src/main/java/org/bakasu/bakasu/domain/usecase/CheckManagerUpdateUseCase.kt'
+edit(usecase, 'import org.bakasu.bakasu.data.update.ManagerUpdateRepository',
+     'import org.bakasu.bakasu.BuildConfig\nimport org.bakasu.bakasu.data.update.ManagerUpdateRepository')
+edit(usecase, '= when (channel) {',
+     '= if (BuildConfig.SAMSUNG_BUILD) null else when (channel) {')
 # Product-facing branding; native version metadata and credits stay intact.
-base = 'manager/app/src/main/java/com/resukisu/resukisu/'
+base = 'manager/app/src/main/java/org/bakasu/bakasu/'
 edit(base + 'data/logging/BugreportDataSource.kt',
-     'pw.println("ReSukiSU: $ksuKernelFull")',
+     'pw.println("BakaSU: $ksuKernelFull")',
      'pw.println("KitsuSU driver: $ksuKernelFull")')
 edit(base + 'di/AppModules.kt',
-     '"ReSukiSU/${BuildConfig.VERSION_CODE}"',
+     '"BakaSU/${BuildConfig.VERSION_CODE}"',
      '"KitsuSU/${BuildConfig.VERSION_CODE}"')
 edit(base + 'ui/screen/about/About.kt',
-     'https://github.com/ReSukiSU/ReSukiSU',
+     'https://github.com/Baka-SU/BakaSU',
      'https://github.com/SysopBP/BakaSU-Diagnostic/tree/feat/samsung-jailbreak')
 edit(base + 'ui/screen/about/About.kt',
-     'https://t.me/ReSukiSU',
+     'https://t.me/BakaSU',
      'https://github.com/SysopBP/BakaSU-Diagnostic/issues')
 edit(base + 'ui/screen/main/ModulePage.kt',
      'R.drawable.ic_launcher_foreground',
@@ -91,13 +91,13 @@ copyfile(asset_dir / 'kitsu_fox.png', Path('manager/app/src/main/ic_launcher-pla
 # Source archives are distributions too: remove inherited documentation artwork,
 # while retaining licensing texts, authorship credits and the technical docs.
 for docs in (Path('docs'), Path('docs/zh')):
-    for pattern in ('ReSukiSU_*.svg', 'zako*.svg'):
+    for pattern in ('ReSukiSU_*.svg', 'BakaSU_*.svg', 'zako*.svg'):
         for artwork in docs.glob(pattern):
             artwork.unlink()
     readme = docs / 'README.md'
     if readme.exists():
         readme.write_text(''.join(line for line in readme.read_text().splitlines(keepends=True)
-                                  if '<img' not in line or 'ReSukiSU_' not in line))
+                                  if '<img' not in line or not any(name in line for name in ('ReSukiSU_', 'BakaSU_'))))
 
 # Keep all locales consistent where inherited text describes this fork's branding.
 import re
@@ -116,7 +116,7 @@ for strings in res.glob('values*/strings.xml'):
 
 # Relocate the entire app namespace together: Java/Kotlin, R/BuildConfig,
 # manifest components/actions, JNI exports/class descriptors, and keep rules.
-old_package, new_package = 'com.resukisu.resukisu', 'app.kitsusu.manager'
+old_package, new_package = 'org.bakasu.bakasu', 'app.kitsusu.manager'
 old_path, new_path = old_package.replace('.', '/'), new_package.replace('.', '/')
 old_jni, new_jni = old_package.replace('.', '_'), new_package.replace('.', '_')
 source_suffixes = {'.kt', '.kts', '.java', '.xml', '.pro', '.c', '.cpp', '.h', '.properties'}
@@ -133,12 +133,12 @@ if not old_source.is_dir() or new_source.exists():
 new_source.parent.mkdir(parents=True, exist_ok=True)
 old_source.rename(new_source)
 # Keep daemon default package and explicit CLI defaults aligned with the APK.
-for name in ('userspace/ksud/build.rs', 'userspace/ksud/src/android/cli.rs'):
+for name in ('manager/build.gradle.kts', 'userspace/ksud/build.rs', 'userspace/ksud/src/android/cli.rs'):
     source = Path(name)
     content = source.read_text()
-    if old_package not in content:
+    if 'com.resukisu.resukisu' not in content:
         raise SystemExit(f'{source}: missing package default anchor')
-    source.write_text(content.replace(old_package, new_package))
+    source.write_text(content.replace('com.resukisu.resukisu', new_package))
 print(f'manager namespace and daemon defaults: {new_package}')
 
 # KitsuSU recovery controls: keep UI/data sources and resource text reviewable.
