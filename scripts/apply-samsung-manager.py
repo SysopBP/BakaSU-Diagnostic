@@ -62,7 +62,7 @@ edit(base + 'ui/screen/main/ModulePage.kt',
 
 # Expose the firmware build fingerprint alongside the device/kernel versions.
 edit(home, '    val managersList = systemInfo.managersList',
-     '    val managersList = systemInfo.managersList\n    val fingerprintContext = LocalContext.current')
+     '    val managersList = systemInfo.managersList\n    val fingerprintContext = LocalContext.current\n    val fingerprintLabel = stringResource(R.string.kitsu_build_fingerprint)')
 edit(home, '''        item(
             visible = systemStatus.isManager,
         ) {
@@ -72,13 +72,13 @@ edit(home, '''        item(
             SettingsBaseWidget(
                 icon = Icons.TwoTone.Info.takeIf { showHomeCardIcons },
                 iconPlaceholder = false,
-                title = stringResource(R.string.kitsu_build_fingerprint),
+                title = fingerprintLabel,
                 description = Build.FINGERPRINT,
                 onClick = {
                     fingerprintContext.getSystemService(android.content.ClipboardManager::class.java)
                         ?.setPrimaryClip(
                             android.content.ClipData.newPlainText(
-                                fingerprintContext.getString(R.string.kitsu_build_fingerprint),
+                                fingerprintLabel,
                                 Build.FINGERPRINT,
                             ),
                         )
