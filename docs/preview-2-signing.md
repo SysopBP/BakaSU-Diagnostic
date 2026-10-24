@@ -33,3 +33,12 @@ samsung/m3quew/m3q:17/CP2A.260605.016/S948U1UEU4BZID_OYM4BZID:user/release-keys,
 security patch 2026-09-05,
 kernel 6.12.69-android16-6-pee899be-abogkiS948USQU4BZID-4k.
 Root and soft reboot reported working; this is not a per-feature SusFS pass.
+
+## Reported working devices
+
+Galaxy S23 Ultra, S25 Ultra, S26 Ultra, Fold 8, and Tab 11 / Tab 11 Pro
+(exact tablet model to be confirmed). S23 Ultra success confirmed by the
+maintainer on 2026-10-24; exact variant and firmware not recorded.
+Tablet root was reported working; soft reboot still requires separate acceptance.
+These are FragX/KitsuSU reports, not per-feature SusFS verification or blanket
+support for every firmware. No successful S24 Ultra test is recorded here.
