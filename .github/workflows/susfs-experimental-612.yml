@@ -34,6 +34,19 @@ jobs:
           test -f "$KDIR/Makefile"
           make -C "$KDIR" M="$PWD/kernel" ARCH=arm64 CC=clang LLVM=1 LLVM_IAS=1 modules -j"$(nproc)"
           test -s kernel/susfs_guard_lkm.ko
+      - name: Verify gate-counter binary exports
+        shell: bash
+        run: |
+          set -euo pipefail
+          KO=source/kernel/susfs_guard_lkm.ko
+          modinfo "$KO" > /tmp/susfs-gate-modinfo.txt
+          for name in diag_bypass diag_nonapp diag_owner diag_allow; do
+            if ! grep -Eq "^parm:[[:space:]]+$name([:[:space:]]|$)" /tmp/susfs-gate-modinfo.txt; then
+              echo "::error::Missing $name in compiled module metadata"
+              exit 1
+            fi
+          done
+          echo "All four gate-counter parameters present in compiled binary."
       - name: Audit experimental binary
         shell: bash
         run: |
