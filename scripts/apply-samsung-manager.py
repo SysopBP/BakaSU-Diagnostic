@@ -59,6 +59,39 @@ edit(base + 'ui/screen/about/About.kt',
 edit(base + 'ui/screen/main/ModulePage.kt',
      'R.drawable.ic_launcher_foreground',
      'R.drawable.kitsu_fox')
+
+# Expose the firmware build fingerprint alongside the device/kernel versions.
+edit(home, '    val managersList = systemInfo.managersList',
+     '    val managersList = systemInfo.managersList\n    val fingerprintContext = LocalContext.current')
+edit(home, '''        item(
+            visible = systemStatus.isManager,
+        ) {
+            SettingsBaseWidget(
+                icon = Icons.TwoTone.Memory.takeIf { showHomeCardIcons },''',
+     '''        item {
+            SettingsBaseWidget(
+                icon = Icons.TwoTone.Info.takeIf { showHomeCardIcons },
+                iconPlaceholder = false,
+                title = stringResource(R.string.kitsu_build_fingerprint),
+                description = Build.FINGERPRINT,
+                onClick = {
+                    fingerprintContext.getSystemService(android.content.ClipboardManager::class.java)
+                        ?.setPrimaryClip(
+                            android.content.ClipData.newPlainText(
+                                fingerprintContext.getString(R.string.kitsu_build_fingerprint),
+                                Build.FINGERPRINT,
+                            ),
+                        )
+                },
+            )
+        }
+
+        item(
+            visible = systemStatus.isManager,
+        ) {
+            SettingsBaseWidget(
+                icon = Icons.TwoTone.Memory.takeIf { showHomeCardIcons },''')
+
 for path, text in changes.items():
     path.write_text(text)
     print(f'patched {path}')
