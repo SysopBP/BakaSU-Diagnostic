@@ -156,7 +156,8 @@ jobs:
           set -euo pipefail
           python3 fork/scripts/verify-manager-artwork.py --source upstream
           mkdir -p source-bundle
-          cp -a fork/vendor fork/scripts fork/.github source-bundle/
+          cp -a fork/vendor fork/scripts fork/patches fork/.github source-bundle/
+          sha256sum fork/patches/bakasu/*.patch > source-bundle/UPSTREAM_PATCH_SHA256SUMS.txt
           git -C upstream rev-parse HEAD > source-bundle/BAKASU_COMMIT.txt
           tar --exclude=.git --exclude=target --exclude=build --exclude=.gradle -czf KitsuSU-samsung-source.tar.gz upstream source-bundle
           python3 fork/scripts/verify-manager-artwork.py --archive KitsuSU-samsung-source.tar.gz
