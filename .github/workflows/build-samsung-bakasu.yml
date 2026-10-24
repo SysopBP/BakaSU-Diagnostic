@@ -1,7 +1,7 @@
 name: Build KitsuSU for Samsung (FragX-compatible)
 on:
   push:
-    branches: [main, 'feat/samsung-jailbreak', 'feat/kitsusu-recovery-controls', 'fix/tablet-soft-reboot-service-parser', 'diagnostics/susfs-gate-hooks-20261023', 'diagnostics/susfs-eligibility-reasons-20261023']
+    branches: [main, 'feat/samsung-jailbreak', 'feat/kitsusu-recovery-controls', 'fix/tablet-soft-reboot-service-parser', 'diagnostics/susfs-gate-hooks-20261023', 'diagnostics/susfs-eligibility-reasons-20261023', 'test/bakasu-upstream-sync-20261023']
     paths:
       - 'scripts/apply-susfs-gate-diagnostics.py'
       - 'scripts/apply-samsung-jailbreak.py'
@@ -72,6 +72,12 @@ jobs:
           set -euo pipefail
           git clone https://github.com/Baka-SU/BakaSU.git upstream
           git -C upstream checkout --detach "$BAKASU_REF"
+          # Isolated upstream security/stability candidate commits; abort on conflicts.
+          git -C upstream config user.name "KitsuSU CI"
+          git -C upstream config user.email "ci@users.noreply.github.com"
+          for commit in ba8cfa502e 969de3d0ce 648144087e d7260ca1e5; do
+            git -C upstream cherry-pick "$commit" || { git -C upstream cherry-pick --abort; exit 1; }
+          done
           git config --global --add safe.directory "$GITHUB_WORKSPACE/upstream"
           cp fork/vendor/kernel/compat/* upstream/kernel/compat/
           cd upstream
@@ -115,6 +121,12 @@ jobs:
           set -euo pipefail
           git clone https://github.com/Baka-SU/BakaSU.git upstream
           git -C upstream checkout --detach "$BAKASU_REF"
+          # Isolated upstream security/stability candidate commits; abort on conflicts.
+          git -C upstream config user.name "KitsuSU CI"
+          git -C upstream config user.email "ci@users.noreply.github.com"
+          for commit in ba8cfa502e 969de3d0ce 648144087e d7260ca1e5; do
+            git -C upstream cherry-pick "$commit" || { git -C upstream cherry-pick --abort; exit 1; }
+          done
           cp fork/vendor/kernel/compat/* upstream/kernel/compat/
           cd upstream
           python3 ../fork/scripts/apply-samsung-jailbreak.py
@@ -177,6 +189,12 @@ jobs:
         run: |
           git clone https://github.com/Baka-SU/BakaSU.git upstream
           git -C upstream checkout --detach "$BAKASU_REF"
+          # Isolated upstream security/stability candidate commits; abort on conflicts.
+          git -C upstream config user.name "KitsuSU CI"
+          git -C upstream config user.email "ci@users.noreply.github.com"
+          for commit in ba8cfa502e 969de3d0ce 648144087e d7260ca1e5; do
+            git -C upstream cherry-pick "$commit" || { git -C upstream cherry-pick --abort; exit 1; }
+          done
           cd upstream
           python3 ../fork/scripts/apply-samsung-manager.py
       - uses: actions/setup-java@v5
