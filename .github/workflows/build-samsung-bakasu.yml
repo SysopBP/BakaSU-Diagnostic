@@ -1,7 +1,7 @@
 name: Build KitsuSU for Samsung (FragX-compatible)
 on:
   push:
-    branches: [main, 'feat/samsung-jailbreak', 'feat/kitsusu-recovery-controls', 'fix/tablet-soft-reboot-service-parser', 'diagnostics/susfs-gate-hooks-20261023', 'diagnostics/susfs-eligibility-reasons-20261023']
+    branches: [main, 'feat/samsung-jailbreak', 'feat/kitsusu-recovery-controls', 'fix/tablet-soft-reboot-service-parser', 'diagnostics/susfs-gate-hooks-20261023', 'diagnostics/susfs-eligibility-reasons-20261023', 'fix/susfs-kernel612-efault-20261023']
     paths:
       - 'scripts/apply-susfs-gate-diagnostics.py'
       - 'scripts/apply-samsung-jailbreak.py'
