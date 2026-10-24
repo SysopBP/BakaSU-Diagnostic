@@ -1,7 +1,7 @@
 name: Build KitsuSU for Samsung (FragX-compatible)
 on:
   push:
-    branches: [main, 'feat/samsung-jailbreak', 'feat/kitsusu-recovery-controls', 'fix/tablet-soft-reboot-service-parser', 'diagnostics/susfs-gate-hooks-20261023', 'diagnostics/susfs-eligibility-reasons-20261023', 'test/bakasu-upstream-sync-20261023']
+    branches: [main, 'feat/samsung-jailbreak', 'feat/kitsusu-recovery-controls', 'fix/tablet-soft-reboot-service-parser', 'diagnostics/susfs-gate-hooks-20261023', 'diagnostics/susfs-eligibility-reasons-20261023', 'test/bakasu-upstream-sync-20261023', 'fix/samsung-bootchecker-soft-reboot-20261024']
     paths:
       - 'scripts/apply-susfs-gate-diagnostics.py'
       - 'scripts/apply-samsung-jailbreak.py'
@@ -29,6 +29,16 @@ env:
   KEYSTORE_ALIAS: fragx
   KEYSTORE_PASS: android
 jobs:
+  bootchecker-check:
+    name: Samsung bootchecker regression tests
+    runs-on: ubuntu-24.04
+    steps:
+      - uses: actions/checkout@v5
+      - uses: dtolnay/rust-toolchain@stable
+      - name: Test preflight without Android or device access
+        run: |
+          rustc --edition=2024 --test vendor/userspace/samsung_bootchecker.rs -o /tmp/bootchecker-tests
+          /tmp/bootchecker-tests
   prep:
     name: Signing key and manager signature
     runs-on: ubuntu-24.04
@@ -107,7 +117,7 @@ jobs:
           path: ${{ github.workspace }}/out/*_kernelsu.ko
           if-no-files-found: error
   ksud:
-    needs: [prep, lkm]
+    needs: [prep, lkm, bootchecker-check]
     runs-on: ubuntu-24.04
     timeout-minutes: 90
     steps:
@@ -141,6 +151,10 @@ jobs:
         with:
           targets: aarch64-linux-android
           components: rust-src
+      - name: Test Samsung bootchecker preflight
+        run: |
+          rustc --edition=2024 --test upstream/userspace/ksud/src/android/soft_reboot/samsung_bootchecker.rs -o /tmp/bootchecker-tests
+          /tmp/bootchecker-tests
       - name: Test service-list parser with host Rust harness
         run: python3 fork/scripts/test-soft-reboot-parser.py --source upstream
       - name: Install cargo-ndk
@@ -287,7 +301,7 @@ jobs:
             KitsuSU-samsung-arm64.apk.sha256
           if-no-files-found: error
   susfs-lkm:
-    if: github.ref != 'refs/heads/test/bakasu-upstream-sync-20261023'
+    if: github.ref != 'refs/heads/test/bakasu-upstream-sync-20261023' && github.ref != 'refs/heads/fix/samsung-bootchecker-soft-reboot-20261024'
     name: susfs_guard_lkm (${{ matrix.kmi }})
     runs-on: ubuntu-24.04
     timeout-minutes: 45
@@ -384,7 +398,7 @@ jobs:
         path: ${{ github.workspace }}/out/*.ko
         if-no-files-found: error
   susfs-tools:
-    if: github.ref != 'refs/heads/test/bakasu-upstream-sync-20261023'
+    if: github.ref != 'refs/heads/test/bakasu-upstream-sync-20261023' && github.ref != 'refs/heads/fix/samsung-bootchecker-soft-reboot-20261024'
     name: susfs loader
     runs-on: ubuntu-24.04
     timeout-minutes: 15
@@ -413,7 +427,7 @@ jobs:
         path: /tmp/susfs_insmod
         if-no-files-found: error
   susfs-module:
-    if: github.ref != 'refs/heads/test/bakasu-upstream-sync-20261023'
+    if: github.ref != 'refs/heads/test/bakasu-upstream-sync-20261023' && github.ref != 'refs/heads/fix/samsung-bootchecker-soft-reboot-20261024'
     name: susfs flashable module
     needs:
     - susfs-lkm
