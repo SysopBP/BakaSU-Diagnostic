@@ -1,7 +1,7 @@
 name: Build KitsuSU for Samsung (FragX-compatible)
 on:
   push:
-    branches: [main, 'feat/samsung-jailbreak', 'feat/kitsusu-recovery-controls', 'fix/tablet-soft-reboot-service-parser', 'diagnostics/susfs-gate-hooks-20261023', 'diagnostics/susfs-eligibility-reasons-20261023', 'test/bakasu-upstream-sync-20261023']
+    branches: [main, 'feat/samsung-jailbreak', 'feat/kitsusu-recovery-controls', 'fix/tablet-soft-reboot-service-parser', 'diagnostics/susfs-gate-hooks-20261023', 'diagnostics/susfs-eligibility-reasons-20261023', 'test/bakasu-upstream-sync-20261023', 'release/preview-2']
     paths:
       - 'scripts/apply-susfs-gate-diagnostics.py'
       - 'scripts/apply-samsung-jailbreak.py'
@@ -26,8 +26,8 @@ env:
   BAKASU_REF: 39faf94a2d4a40d48093398bafcde649916edbc1
   SUSFS_REF: 8ab4500ffc3f13ec6ded79d7ab13e2e8147a1879
   KSU_PACKAGE_NAME: app.kitsusu.manager
-  KEYSTORE_ALIAS: fragx
-  KEYSTORE_PASS: android
+  KEYSTORE_ALIAS: ${{ startsWith(github.ref, 'refs/heads/release/') && secrets.KITSUSU_KEY_ALIAS || 'fragx' }}
+  KEYSTORE_PASS: ${{ startsWith(github.ref, 'refs/heads/release/') && secrets.KITSUSU_KEYSTORE_PASSWORD || 'android' }}
 jobs:
   prep:
     name: Signing key and manager signature
@@ -40,21 +40,50 @@ jobs:
         with:
           distribution: temurin
           java-version: '21'
-      - name: Generate per-run test key
+      - name: Prepare matching signing certificate
         id: cert
+        env:
+          RELEASE_BUILD: ${{ startsWith(github.ref, 'refs/heads/release/') }}
+          RELEASE_KEYSTORE_B64: ${{ secrets.KITSUSU_KEYSTORE }}
+          RELEASE_CERT_SHA256: ${{ vars.KITSUSU_CERT_SHA256 }}
+          REQUIRED_ALIAS: ${{ secrets.KITSUSU_KEY_ALIAS }}
+          REQUIRED_PASSWORD: ${{ secrets.KITSUSU_KEYSTORE_PASSWORD }}
         run: |
           set -euo pipefail
-          keytool -genkeypair -keystore keystore.jks -alias "$KEYSTORE_ALIAS" -keyalg RSA -keysize 2048 -validity 10000 -storepass "$KEYSTORE_PASS" -keypass "$KEYSTORE_PASS" -dname 'CN=FragX BakaSU Test'
+          umask 077
+          if [ "$RELEASE_BUILD" = true ]; then
+            test -n "$RELEASE_KEYSTORE_B64" && test -n "$REQUIRED_ALIAS" && test -n "$REQUIRED_PASSWORD" || {
+              echo '::error::Release signing requires KITSUSU_KEYSTORE, KITSUSU_KEY_ALIAS and KITSUSU_KEYSTORE_PASSWORD repository secrets.'; exit 1;
+            }
+            [[ "$RELEASE_CERT_SHA256" =~ ^[0-9a-fA-F]{64}$ ]] || {
+              echo '::error::Set KITSUSU_CERT_SHA256 repository variable to the permanent DER certificate SHA256.'; exit 1;
+            }
+            printf '%s' "$RELEASE_KEYSTORE_B64" | base64 --decode > keystore.jks
+          else
+            keytool -genkeypair -keystore keystore.jks -alias "$KEYSTORE_ALIAS" -keyalg RSA -keysize 2048 -validity 10000 -storepass "$KEYSTORE_PASS" -keypass "$KEYSTORE_PASS" -dname 'CN=FragX BakaSU Test'
+          fi
           keytool -exportcert -keystore keystore.jks -alias "$KEYSTORE_ALIAS" -storepass "$KEYSTORE_PASS" -file cert.der
+          if [ "$RELEASE_BUILD" = true ]; then
+            printf '%s  cert.der\n' "${RELEASE_CERT_SHA256,,}" | sha256sum --check
+            rm -f keystore.jks
+          fi
           echo "size=0x$(printf '%x' "$(stat -c%s cert.der)")" >> "$GITHUB_OUTPUT"
           echo "hash=$(sha256sum cert.der | cut -d' ' -f1)" >> "$GITHUB_OUTPUT"
       - uses: actions/upload-artifact@v6
+        if: ${{ !startsWith(github.ref, 'refs/heads/release/') }}
         with:
           name: signing
           retention-days: 1
           path: |
             keystore.jks
             cert.der
+      - name: Upload public release certificate only
+        if: startsWith(github.ref, 'refs/heads/release/')
+        uses: actions/upload-artifact@v6
+        with:
+          name: release-certificate
+          path: cert.der
+          if-no-files-found: error
   lkm:
     needs: prep
     runs-on: ubuntu-24.04
@@ -177,6 +206,7 @@ jobs:
           path: upstream/userspace/ksud/target/aarch64-linux-android/release/ksud
           if-no-files-found: error
   manager-check:
+    needs: prep
     name: Manager formatting, lint and compilation
     runs-on: ubuntu-24.04
     timeout-minutes: 90
@@ -239,7 +269,9 @@ jobs:
           distribution: temurin
           java-version: '21'
       - uses: gradle/actions/setup-gradle@v5
-      - uses: actions/download-artifact@v7
+      - name: Restore development signing key
+        if: ${{ !startsWith(github.ref, 'refs/heads/release/') }}
+        uses: actions/download-artifact@v7
         with:
           name: signing
       - uses: actions/download-artifact@v7
@@ -250,6 +282,16 @@ jobs:
         with:
           name: manager-unsigned-debug
           path: upstream/manager/app/build/outputs/apk/debug
+      - name: Restore permanent signing key privately
+        if: startsWith(github.ref, 'refs/heads/release/')
+        env:
+          RELEASE_KEYSTORE_B64: ${{ secrets.KITSUSU_KEYSTORE }}
+        run: |
+          set -euo pipefail
+          umask 077
+          printf '%s' "$RELEASE_KEYSTORE_B64" | base64 --decode > keystore.jks
+          keytool -exportcert -keystore keystore.jks -alias "$KEYSTORE_ALIAS" -storepass:env KEYSTORE_PASS -file cert.der
+          printf '%s  cert.der\n' '${{ needs.prep.outputs.cert_hash }}' | sha256sum --check
       - name: Stage daemon and repack
         working-directory: upstream
         run: |
@@ -257,6 +299,9 @@ jobs:
           mkdir -p target/aarch64-linux-android/release
           cp "$GITHUB_WORKSPACE/ksud-bin/ksud" target/aarch64-linux-android/release/ksud
           python3 repack_apk_multi.py repack -b debug -t release -a arm64-v8a -K "$GITHUB_WORKSPACE/keystore.jks" -A "$KEYSTORE_ALIAS" -P "$KEYSTORE_PASS" -S "$KEYSTORE_PASS"
+      - name: Remove signing material
+        if: always()
+        run: rm -f keystore.jks cert.der
       - name: Validate APK signature and embedded daemon
         run: |
           set -euo pipefail
@@ -287,7 +332,7 @@ jobs:
             KitsuSU-samsung-arm64.apk.sha256
           if-no-files-found: error
   susfs-lkm:
-    if: github.ref != 'refs/heads/test/bakasu-upstream-sync-20261023'
+    if: github.ref != 'refs/heads/test/bakasu-upstream-sync-20261023' && !startsWith(github.ref, 'refs/heads/release/')
     name: susfs_guard_lkm (${{ matrix.kmi }})
     runs-on: ubuntu-24.04
     timeout-minutes: 45
@@ -384,7 +429,7 @@ jobs:
         path: ${{ github.workspace }}/out/*.ko
         if-no-files-found: error
   susfs-tools:
-    if: github.ref != 'refs/heads/test/bakasu-upstream-sync-20261023'
+    if: github.ref != 'refs/heads/test/bakasu-upstream-sync-20261023' && !startsWith(github.ref, 'refs/heads/release/')
     name: susfs loader
     runs-on: ubuntu-24.04
     timeout-minutes: 15
@@ -413,7 +458,7 @@ jobs:
         path: /tmp/susfs_insmod
         if-no-files-found: error
   susfs-module:
-    if: github.ref != 'refs/heads/test/bakasu-upstream-sync-20261023'
+    if: github.ref != 'refs/heads/test/bakasu-upstream-sync-20261023' && !startsWith(github.ref, 'refs/heads/release/')
     name: susfs flashable module
     needs:
     - susfs-lkm
