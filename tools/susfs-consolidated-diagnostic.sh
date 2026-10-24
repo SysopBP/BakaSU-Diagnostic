@@ -2,11 +2,13 @@
 # BakaSU consolidated SusFS diagnostics: read-only, no module loading or configuration changes.
 # Run from Termux as: sh tools/susfs-consolidated-diagnostic.sh
 set -u
-OUT="${1:-/sdcard/Download/BakaSU_SusFS_Diagnostic_$(date +%Y%m%d_%H%M%S).txt}"
+OUT="${1:-${HOME:-/data/local/tmp}/BakaSU_SusFS_Diagnostic_$(date +%Y%m%d_%H%M%S).txt}"
 TEST="/data/local/tmp/susfs-visibility-test/hidden.txt"
 PROBE="/data/local/tmp/kitsu-susfs-probe.txt"
-case "$OUT" in /sdcard/Download/*|/storage/emulated/0/Download/*) ;; *) echo "Output must be in Downloads" >&2; exit 2;; esac
-mkdir -p /sdcard/Download || exit 1
+case "$OUT" in
+ "${HOME:-/nonexistent}"/BakaSU_SusFS_Diagnostic_*.txt|/sdcard/Download/BakaSU_SusFS_Diagnostic_*.txt|/storage/emulated/0/Download/BakaSU_SusFS_Diagnostic_*.txt) ;;
+ *) echo "Output must be in Termux home or Downloads" >&2; exit 2;;
+esac
 umask 077
 {
 echo "BAKASU SUSFS CONSOLIDATED DIAGNOSTIC"
@@ -47,5 +49,5 @@ echo "probe file metadata:"; ls -l /data/local/tmp/susfs-visibility-test/hidden.
 echo "=== END ==="
 } > "$OUT" 2>&1
 RC=$?
-echo "Diagnostic saved: $OUT"
+if [ -f "$OUT" ]; then echo "Diagnostic saved: $OUT"; else echo "Diagnostic could not be written: $OUT" >&2; exit 1; fi
 exit "$RC"
