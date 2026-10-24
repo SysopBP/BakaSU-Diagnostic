@@ -23,4 +23,5 @@
     <string name="kitsu_unroot_summary">For temporary FragX root: disables FragX Autorun for user 0, then fully reboots. Does not remove patched boot images or other root-on-boot services. Review VaultGuard in FragX first. Re-enable Autorun in FragX when wanted.</string>
     <string name="kitsu_request_sent">Request accepted; completion is not independently verified.</string>
     <string name="kitsu_action_failed">Action failed or root unavailable. No success was confirmed.</string>
+    <string name="kitsu_build_fingerprint">Build fingerprint</string>
 </resources>
