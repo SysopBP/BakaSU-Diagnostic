@@ -29,6 +29,16 @@ env:
   KEYSTORE_ALIAS: ${{ startsWith(github.ref, 'refs/heads/release/') && secrets.KITSUSU_KEY_ALIAS || 'fragx' }}
   KEYSTORE_PASS: ${{ startsWith(github.ref, 'refs/heads/release/') && secrets.KITSUSU_KEYSTORE_PASSWORD || 'android' }}
 jobs:
+  bootchecker-check:
+    name: Samsung bootchecker regression tests
+    runs-on: ubuntu-24.04
+    steps:
+      - uses: actions/checkout@v5
+      - uses: dtolnay/rust-toolchain@stable
+      - name: Test preflight without Android or device access
+        run: |
+          rustc --edition=2024 --test vendor/userspace/samsung_bootchecker.rs -o /tmp/bootchecker-tests
+          /tmp/bootchecker-tests
   prep:
     name: Signing key and manager signature
     runs-on: ubuntu-24.04
@@ -136,7 +146,7 @@ jobs:
           path: ${{ github.workspace }}/out/*_kernelsu.ko
           if-no-files-found: error
   ksud:
-    needs: [prep, lkm]
+    needs: [prep, lkm, bootchecker-check]
     runs-on: ubuntu-24.04
     timeout-minutes: 90
     steps:
@@ -170,6 +180,10 @@ jobs:
         with:
           targets: aarch64-linux-android
           components: rust-src
+      - name: Test Samsung bootchecker preflight
+        run: |
+          rustc --edition=2024 --test upstream/userspace/ksud/src/android/soft_reboot/samsung_bootchecker.rs -o /tmp/bootchecker-tests
+          /tmp/bootchecker-tests
       - name: Test service-list parser with host Rust harness
         run: python3 fork/scripts/test-soft-reboot-parser.py --source upstream
       - name: Install cargo-ndk
