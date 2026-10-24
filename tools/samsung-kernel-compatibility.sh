@@ -1,8 +1,12 @@
 #!/system/bin/sh
 # Read-only Samsung kernel compatibility capture. No insmod, writes to kernel or reboot.
 set -u
-OUT="${1:-/sdcard/Download/SusFS_Kernel_Compatibility.txt}"
+OUT="${1:-${HOME:-/data/local/tmp}/SusFS_Kernel_Compatibility.txt}"
 TMP="${OUT}.tmp"
+if ! ( : > "$TMP" ) 2>/dev/null; then
+  echo "ERROR: Cannot write to $TMP; use a writable output path." >&2
+  exit 1
+fi
 {
   echo "=== Device kernel ==="
   uname -a
@@ -34,5 +38,8 @@ TMP="${OUT}.tmp"
     echo '/proc/kallsyms unavailable'
   fi
 } > "$TMP" 2>&1
-mv "$TMP" "$OUT"
+if ! mv "$TMP" "$OUT"; then
+  echo "ERROR: Failed to save $OUT" >&2
+  exit 1
+fi
 echo "Saved: $OUT"
