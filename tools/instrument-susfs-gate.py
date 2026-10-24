@@ -28,6 +28,11 @@ DIAG_COUNTER_PARAM(bypass);
 DIAG_COUNTER_PARAM(nonapp);
 DIAG_COUNTER_PARAM(owner);
 DIAG_COUNTER_PARAM(allow);
+/* Ensure modinfo exposes each read-only counter for artifact verification. */
+MODULE_PARM_DESC(diag_bypass, "read-only path gate bypass count");
+MODULE_PARM_DESC(diag_nonapp, "read-only path gate ineligible caller count");
+MODULE_PARM_DESC(diag_owner, "read-only path gate inode-owner count");
+MODULE_PARM_DESC(diag_allow, "read-only path gate allowed count");
 
 static inline bool sus_path_gate_ok(struct inode *inode)
 {
