@@ -119,9 +119,10 @@ for strings in res.glob('values*/strings.xml'):
 old_package, new_package = 'org.bakasu.bakasu', 'app.kitsusu.manager'
 old_path, new_path = old_package.replace('.', '/'), new_package.replace('.', '/')
 old_jni, new_jni = old_package.replace('.', '_'), new_package.replace('.', '_')
-source_suffixes = {'.kt', '.kts', '.java', '.xml', '.pro', '.c', '.cpp', '.h', '.properties'}
+source_suffixes = {'.kt', '.kts', '.java', '.xml', '.pro', '.c', '.cpp', '.h', '.properties', '.txt'}
 for source in Path('manager').rglob('*'):
-    if source.is_file() and source.suffix in source_suffixes:
+    if source.is_file() and (source.suffix in source_suffixes or
+                             source.name == 'com.android.tools.lint.client.api.IssueRegistry'):
         content = source.read_text()
         updated = content.replace(old_package, new_package).replace(old_path, new_path).replace(old_jni, new_jni)
         if updated != content:
@@ -140,6 +141,11 @@ for name in ('manager/build.gradle.kts', 'userspace/ksud/build.rs', 'userspace/k
         raise SystemExit(f'{source}: missing package default anchor')
     source.write_text(content.replace('com.resukisu.resukisu', new_package))
 print(f'manager namespace and daemon defaults: {new_package}')
+
+# Benchmark targets must use the actual applicationId after the source rename.
+for source in Path('manager/baselineprofile').rglob('*.kt'):
+    content = source.read_text()
+    source.write_text(content.replace('com.resukisu.resukisu', new_package))
 
 # KitsuSU recovery controls: keep UI/data sources and resource text reviewable.
 recovery_assets = asset_dir / 'recovery'
