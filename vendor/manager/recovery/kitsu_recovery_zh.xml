@@ -1,0 +1,24 @@
+<?xml version="1.0" encoding="utf-8"?>
+<resources>
+    <string name="kitsu_root_management">Root 管理</string>
+    <string name="kitsu_susfs_title">SusFS · 实验性</string>
+    <string name="kitsu_susfs_summary">启用现有的 SusFS 配置。需要内核支持；此开关不会安装 SusFS。部分更改需要重启。</string>
+    <string name="kitsu_susfs_status">SusFS 状态与配置</string>
+    <string name="kitsu_checking">正在检查支持情况…</string>
+    <string name="kitsu_susfs_available">内核报告支持 SusFS。点击查看详细配置。</string>
+    <string name="kitsu_susfs_unsupported">此内核未报告 SusFS 支持。</string>
+    <string name="kitsu_check_failed">无法检查支持情况。请检查 Root 权限并重新打开设置。</string>
+    <string name="kitsu_config_saved">配置已保存。请打开详情检查设置。</string>
+    <string name="kitsu_recovery_management">恢复管理</string>
+    <string name="kitsu_vaultguard">保持 Odin 可用 · VaultGuard</string>
+    <string name="kitsu_vaultguard_summary">打开 FragX，检查并管理三星恢复保护。状态将在 FragX 中验证。</string>
+    <string name="kitsu_fragx_missing">请安装 FragX 以管理 VaultGuard。</string>
+    <string name="kitsu_restart_zygote">重启 Zygote</string>
+    <string name="kitsu_restart_zygote_summary">重启主要 Android 应用运行环境。应用将关闭；请先保存工作。此操作不会重新挂载模块。</string>
+    <string name="kitsu_soft_reboot">软重启</string>
+    <string name="kitsu_soft_reboot_summary">使用当前 KitsuSU 守护进程重启 Android 并执行模块启动阶段。请先保存工作。</string>
+    <string name="kitsu_unroot">重启并停止 FragX 自动运行</string>
+    <string name="kitsu_unroot_summary">适用于 FragX 临时 Root：禁用用户 0 的 FragX 自动运行，然后完全重启。不会删除已修补的启动镜像或其他开机 Root 服务。请先在 FragX 中检查 VaultGuard。需要时可在 FragX 中重新启用自动运行。</string>
+    <string name="kitsu_request_sent">请求已接受；完成情况尚未独立验证。</string>
+    <string name="kitsu_action_failed">操作失败或 Root 不可用。尚未确认成功。</string>
+</resources>

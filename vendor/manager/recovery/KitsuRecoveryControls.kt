@@ -114,20 +114,22 @@ internal fun KitsuRecoveryControls() {
             Triple(2, R.string.kitsu_unroot, R.string.kitsu_unroot_summary)
         )) {
             item {
+                val actionTitle = stringResource(title)
+                val actionDescription = stringResource(description)
                 SettingsJumpPageWidget(
                     icon = when (action) {
                         0 -> Icons.Filled.RestartAlt
                         1 -> Icons.Filled.Refresh
                         else -> Icons.Filled.PowerSettingsNew
                     },
-                    title = stringResource(title), description = stringResource(description),
+                    title = actionTitle, description = actionDescription,
                     enabled = !busy && (action != 2 || lkm),
                     onClick = {
                         busy = true
                         scope.launch {
                             try {
-                                if (confirm.awaitConfirm(title = context.getString(title),
-                                        content = context.getString(description)) == ConfirmResult.Confirmed) {
+                                if (confirm.awaitConfirm(title = actionTitle,
+                                        content = actionDescription) == ConfirmResult.Confirmed) {
                                     val ok = recovery.perform(action)
                                     android.widget.Toast.makeText(context,
                                         if (ok) R.string.kitsu_request_sent else R.string.kitsu_action_failed,

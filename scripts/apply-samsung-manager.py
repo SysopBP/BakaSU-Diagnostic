@@ -158,6 +158,7 @@ for filename, relative in (
     target.parent.mkdir(parents=True, exist_ok=True)
     copyfile(recovery_assets / filename, target)
 copyfile(recovery_assets / 'kitsu_recovery.xml', res / 'values/kitsu_recovery.xml')
+copyfile(recovery_assets / 'kitsu_recovery_zh.xml', res / 'values-zh-rCN/kitsu_recovery.xml')
 settings = manager_java / 'ui/screen/main/SettingsPage.kt'
 text = settings.read_text()
 anchor = '            // 配置卡片\n'

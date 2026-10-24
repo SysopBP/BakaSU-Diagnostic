@@ -204,6 +204,16 @@ jobs:
           ./gradlew spotlessApply --no-daemon --no-configuration-cache
           ./gradlew spotlessCheck :app:lintDebug :app:assembleDebug --stacktrace --no-daemon
           ./gradlew assembleRelease --stacktrace --no-daemon
+      - name: Print lint diagnostics on failure
+        if: failure()
+        run: |
+          find upstream/manager/app/build -name 'lint-results-*.txt' -exec cat {} +
+      - uses: actions/upload-artifact@v6
+        if: always()
+        with:
+          name: manager-validation-reports
+          path: upstream/manager/app/build/reports/
+          if-no-files-found: ignore
       - uses: actions/upload-artifact@v6
         with:
           name: manager-unsigned-debug

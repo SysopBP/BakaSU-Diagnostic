@@ -1,5 +1,7 @@
 <?xml version="1.0" encoding="utf-8"?>
-<resources>
+<!-- Recovery controls currently support English and Simplified Chinese.
+     Other locales deliberately use Android's English fallback. -->
+<resources xmlns:tools="http://schemas.android.com/tools" tools:ignore="MissingTranslation">
     <string name="kitsu_root_management">Root management</string>
     <string name="kitsu_susfs_title">SusFS · experimental</string>
     <string name="kitsu_susfs_summary">Enable the existing SusFS configuration. Requires kernel support; this switch does not install SusFS. Some changes require a reboot.</string>
