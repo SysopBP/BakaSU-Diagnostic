@@ -266,6 +266,15 @@ jobs:
         repository: inforcqb/susfs4ksu-lkm
         ref: ${{ env.SUSFS_REF }}
         path: susfs
+    - name: Checkout diagnostic patch from this branch
+      uses: actions/checkout@v5
+      with:
+        path: diagnostic-src
+    - name: Apply additive gate diagnostics to pinned SusFS
+      run: |
+        set -euo pipefail
+        python3 ../diagnostic-src/scripts/apply-susfs-gate-diagnostics.py
+      working-directory: susfs
     - name: Build susfs_guard_lkm.ko
       working-directory: susfs
       run: |
