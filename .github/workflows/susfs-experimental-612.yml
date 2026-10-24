@@ -4,6 +4,7 @@ on:
   pull_request:
     paths:
       - '.github/workflows/susfs-experimental-612.yml'
+      - 'tools/instrument-susfs-gate.py'
 permissions:
   contents: read
 jobs:
@@ -14,6 +15,7 @@ jobs:
       image: ghcr.io/ylarod/ddk-min:android16-6.12-20260828@sha256:fd3ec5cc71d7f2716212e9df8d5674a9afe68fb769282fcac87b83f207f949ee
       options: --privileged
     steps:
+      - uses: actions/checkout@v4
       - name: Fetch immutable upstream source
         shell: bash
         run: |
@@ -21,6 +23,9 @@ jobs:
           git clone https://github.com/inforcqb/susfs4ksu-lkm.git source
           git -C source checkout --detach 8ab4500ffc3f13ec6ded79d7ab13e2e8147a1879
           test "$(git -C source rev-parse HEAD)" = "8ab4500ffc3f13ec6ded79d7ab13e2e8147a1879"
+      - name: Instrument path gate counters
+        shell: bash
+        run: python3 tools/instrument-susfs-gate.py
       - name: Build GKI Android 16 6.12 kernel module
         shell: bash
         working-directory: source
@@ -38,10 +43,10 @@ jobs:
           sha256sum source/kernel/susfs_guard_lkm.ko > audit/sha256.txt
           file source/kernel/susfs_guard_lkm.ko > audit/file.txt
           (modinfo source/kernel/susfs_guard_lkm.ko || true) > audit/modinfo.txt
-          printf '%s\n' 'UNMODIFIED PINNED UPSTREAM BASELINE. NOT A GATE-COUNTER PATCH. NOT VERIFIED ON SAMSUNG. DO NOT FLASH.' > audit/README.txt
-          cp source/kernel/susfs_guard_lkm.ko audit/susfs_guard_lkm-android16-6.12-EXPERIMENTAL.ko
+          printf '%s\n' 'EXPERIMENTAL GATE-COUNTER INSTRUMENTATION OF PINNED UPSTREAM. NOT VERIFIED ON SAMSUNG. DO NOT FLASH.' > audit/README.txt
+          cp source/kernel/susfs_guard_lkm.ko audit/susfs_guard_lkm-android16-6.12-GATE-COUNTERS.ko
       - uses: actions/upload-artifact@v4
         with:
-          name: susfs-android16-612-baseline-not-flashable
+          name: susfs-android16-612-gate-counters-not-flashable
           path: audit/
           if-no-files-found: error
