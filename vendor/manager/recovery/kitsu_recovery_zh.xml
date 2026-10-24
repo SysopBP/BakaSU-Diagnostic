@@ -21,4 +21,5 @@
     <string name="kitsu_unroot_summary">适用于 FragX 临时 Root：禁用用户 0 的 FragX 自动运行，然后完全重启。不会删除已修补的启动镜像或其他开机 Root 服务。请先在 FragX 中检查 VaultGuard。需要时可在 FragX 中重新启用自动运行。</string>
     <string name="kitsu_request_sent">请求已接受；完成情况尚未独立验证。</string>
     <string name="kitsu_action_failed">操作失败或 Root 不可用。尚未确认成功。</string>
+    <string name="kitsu_build_fingerprint">系统构建指纹</string>
 </resources>
