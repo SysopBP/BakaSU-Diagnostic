@@ -92,6 +92,13 @@ edit(home, '''        item(
             SettingsBaseWidget(
                 icon = Icons.TwoTone.Memory.takeIf { showHomeCardIcons },''')
 
+
+# Refresh runtime status after early failures without modifying SusFS configuration.
+edit("manager/app/src/main/java/org/bakasu/bakasu/data/susfs/SuSFSConfigHelper.kt", "            cachedStatusInfo = statusInfo", "            cachedStatusInfo = statusInfo.takeIf { it.version.isNotBlank() }")
+edit("manager/app/src/main/java/org/bakasu/bakasu/data/susfs/SuSFSConfigHelper.kt", "            CommandResult(\n                success = result.isSuccess,", "            if (!result.isSuccess) {\n                Log.w(TAG, \"SUSFS command failed: $command; exit=${result.code}; ${stderr.joinToString()}\")\n            }\n            CommandResult(\n                success = result.isSuccess,")
+edit("manager/app/src/main/java/org/bakasu/bakasu/ui/screen/susfs/subpages/SuSFSConfigStatusTab.kt", "import androidx.compose.runtime.Composable", "import androidx.compose.runtime.Composable\nimport androidx.compose.runtime.LaunchedEffect")
+edit("manager/app/src/main/java/org/bakasu/bakasu/ui/screen/susfs/subpages/SuSFSConfigStatusTab.kt", "    var statusInfo by remember { mutableStateOf(SuSFSStatusInfo(\"\", \"\", \"\")) }", "    var statusInfo by remember { mutableStateOf(SuSFSStatusInfo(\"\", \"\", \"\")) }\n\n    // Status is independent of loading the editable configuration.\n    LaunchedEffect(configHelper) {\n        statusInfo = awaitSuSFSStatusInfo(configHelper, true)\n            ?: SuSFSStatusInfo(\"\", \"\", \"\")\n    }")
+
 for path, text in changes.items():
     path.write_text(text)
     print(f'patched {path}')
