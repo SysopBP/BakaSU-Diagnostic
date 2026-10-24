@@ -1,0 +1,39 @@
+name: SusFS pinned source audit
+on:
+  workflow_dispatch:
+  pull_request:
+    paths:
+      - '.github/workflows/susfs-source-audit.yml'
+permissions:
+  contents: read
+jobs:
+  source-audit:
+    runs-on: ubuntu-24.04
+    timeout-minutes: 15
+    steps:
+      - uses: actions/checkout@v4
+      - name: Fetch pinned SusFS source
+        run: |
+          set -euo pipefail
+          git clone https://github.com/inforcqb/susfs4ksu-lkm.git upstream-susfs
+          git -C upstream-susfs checkout --detach 8ab4500ffc3f13ec6ded79d7ab13e2e8147a1879
+          test "$(git -C upstream-susfs rev-parse HEAD)" = "8ab4500ffc3f13ec6ded79d7ab13e2e8147a1879"
+      - name: Verify diagnostic gates and packer tests
+        run: |
+          set -euo pipefail
+          grep -q 'susfs_is_current_proc_umounted_app' upstream-susfs/kernel/sus_path.c
+          grep -q 'hide_from_apps' upstream-susfs/kernel/sus_path.c
+          python3 upstream-susfs/tools/test_pack.py
+          for f in upstream-susfs/module/*.sh; do sh -n "$f"; done
+      - name: Record pinned source provenance
+        run: |
+          mkdir -p audit
+          git -C upstream-susfs rev-parse HEAD > audit/source-commit.txt
+          git -C upstream-susfs status --porcelain > audit/source-dirty.txt
+          sha256sum upstream-susfs/kernel/sus_path.c upstream-susfs/kernel/ksu_umount_gate.c > audit/source-sha256.txt
+          printf '%s\n' 'Source/packaging audit only. NO KERNEL MODULE COMPILED. DO NOT FLASH.' > audit/README.txt
+      - uses: actions/upload-artifact@v4
+        if: always()
+        with:
+          name: susfs-pinned-source-audit
+          path: audit/
