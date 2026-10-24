@@ -1,0 +1,51 @@
+From fcebbe2e703e6596e5afee1fd2e02d86eb31bf9a Mon Sep 17 00:00:00 2001
+From: AlexLiuDev233 <wzylin11@outlook.com>
+Date: Sat, 3 Oct 2026 10:13:09 +0800
+Subject: [PATCH 09/12] kernel: escape to root when reading allowlist
+
+Looks Android17 won't allow init to read allowlist anymore
+<36>[   13.073831] type=1400 audit(7306735.671:460): avc:  denied  { read } for  comm="init" name="ksu" dev="dm-60" ino=471524 scontext=u:r:init:s0 tcontext=u:object_r:adb_data_file:s0 tclass=lnk_file permissive=0
+
+escape to u:r:ksu:s0 to bypass SELinux
+
+Signed-off-by: AlexLiuDev233 <wzylin11@outlook.com>
+---
+ kernel/policy/allowlist.c | 6 +++++-
+ 1 file changed, 5 insertions(+), 1 deletion(-)
+
+diff --git a/kernel/policy/allowlist.c b/kernel/policy/allowlist.c
+index 55377ab6..53b83bb4 100644
+--- a/kernel/policy/allowlist.c
++++ b/kernel/policy/allowlist.c
+@@ -502,12 +502,13 @@ void do_ksu_load_allow_list(void *unused)
+     u32 magic;
+     u32 version;
+     size_t app_profile_size;
++    const struct cred *saved = override_creds(ksu_cred);
+ 
+     // load allowlist now!
+     fp = filp_open(KERNEL_SU_ALLOWLIST, O_RDONLY, 0);
+     if (IS_ERR(fp)) {
+         pr_err("load_allow_list open file failed: %ld\n", PTR_ERR(fp));
+-        return;
++        goto revert_creds;
+     }
+ 
+     // verify magic
+@@ -550,6 +551,7 @@ void do_ksu_load_allow_list(void *unused)
+     }
+     ksu_show_allow_list();
+     filp_close(fp, 0);
++    revert_creds(saved);
+     if (version < KSU_APP_PROFILE_VER)
+         ksu_persistent_allow_list();
+     return;
+@@ -557,6 +559,8 @@ void do_ksu_load_allow_list(void *unused)
+ exit:
+     ksu_show_allow_list();
+     filp_close(fp, 0);
++revert_creds:
++    revert_creds(saved);
+ }
+ 
+ void ksu_persistent_allow_list(void)

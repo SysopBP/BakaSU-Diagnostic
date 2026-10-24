@@ -1,0 +1,24 @@
+From c1b313886e4950ed0b885f42022160ade04c3692 Mon Sep 17 00:00:00 2001
+From: fhgffy <102001626+fhgffy@users.noreply.github.com>
+Date: Mon, 5 Oct 2026 19:03:54 +0800
+Subject: [PATCH 10/12] ksud: Scan APK comments up to the ZIP length limit
+ (https://github.com/tiann/KernelSU/pull/3802)
+
+Signed-off-by: Tools-cx-app <localhost.hutao@gmail.com>
+---
+ userspace/ksud/src/apk_sign.rs | 2 +-
+ 1 file changed, 1 insertion(+), 1 deletion(-)
+
+diff --git a/userspace/ksud/src/apk_sign.rs b/userspace/ksud/src/apk_sign.rs
+index 18db0b03..c39bbd06 100644
+--- a/userspace/ksud/src/apk_sign.rs
++++ b/userspace/ksud/src/apk_sign.rs
+@@ -29,7 +29,7 @@ pub fn get_apk_signature(apk: &str) -> Result<(u32, String)> {
+             }
+         }
+ 
+-        ensure!(n != 0xffff, "not a zip file");
++        ensure!(i < 0xffff, "not a zip file");
+ 
+         i += 1;
+     }

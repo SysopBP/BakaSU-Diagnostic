@@ -1,0 +1,266 @@
+From 953550f864da760ac193f357e2f14b0f90b8223d Mon Sep 17 00:00:00 2001
+From: KitsuSU Integration <ci@users.noreply.github.com>
+Date: Fri, 23 Oct 2026 23:44:11 -0500
+Subject: [PATCH 12/12] manager: port splash and WebUI startup fix from
+ 75de877b5d without generated profiles
+
+---
+ .../data/webui/WebUiModuleInfoReader.kt       | 33 ++++++++++++
+ .../resukisu/data/webui/WebUiRepository.kt    | 11 ++++
+ .../resukisu/domain/model/WebUiModuleInfo.kt  |  8 +++
+ .../com/resukisu/resukisu/ui/MainActivity.kt  |  9 ++--
+ .../resukisu/resukisu/ui/StartupSplashGate.kt | 12 -----
+ .../resukisu/ui/webui/WebUIActivity.kt        |  3 --
+ .../resukisu/ui/webui/WebViewHelper.kt        | 53 +++++--------------
+ 7 files changed, 70 insertions(+), 59 deletions(-)
+ create mode 100644 manager/app/src/main/java/com/resukisu/resukisu/data/webui/WebUiModuleInfoReader.kt
+ create mode 100644 manager/app/src/main/java/com/resukisu/resukisu/domain/model/WebUiModuleInfo.kt
+ delete mode 100644 manager/app/src/main/java/com/resukisu/resukisu/ui/StartupSplashGate.kt
+
+diff --git a/manager/app/src/main/java/com/resukisu/resukisu/data/webui/WebUiModuleInfoReader.kt b/manager/app/src/main/java/com/resukisu/resukisu/data/webui/WebUiModuleInfoReader.kt
+new file mode 100644
+index 00000000..f2bee212
+--- /dev/null
++++ b/manager/app/src/main/java/com/resukisu/resukisu/data/webui/WebUiModuleInfoReader.kt
+@@ -0,0 +1,33 @@
++package com.resukisu.resukisu.data.webui
++
++import com.resukisu.resukisu.domain.model.WebUiModuleInfo
++import java.io.File
++import java.io.InputStream
++import java.util.Properties
++
++internal fun readWebUiModuleInfo(
++    moduleId: String,
++    resolveFile: (String) -> File,
++    openFile: (File) -> InputStream,
++): WebUiModuleInfo? {
++    if (moduleId.isBlank() || moduleId == "." || moduleId == ".." ||
++        moduleId.any { it == '/' || it == '\\' || it == '\u0000' }
++    ) {
++        return null
++    }
++
++    val directory = "/data/adb/modules/$moduleId"
++    val propertiesFile = resolveFile("$directory/module.prop")
++    if (!propertiesFile.isFile) return null
++
++    val properties = Properties().apply {
++        openFile(propertiesFile).bufferedReader(Charsets.UTF_8).use { load(it) }
++    }
++
++    return WebUiModuleInfo(
++        name = properties.getProperty("name").orEmpty().ifBlank { moduleId },
++        enabled = !resolveFile("$directory/disable").exists(),
++        remove = resolveFile("$directory/remove").exists(),
++        hasWebUi = resolveFile("$directory/webroot").exists(),
++    )
++}
+diff --git a/manager/app/src/main/java/com/resukisu/resukisu/data/webui/WebUiRepository.kt b/manager/app/src/main/java/com/resukisu/resukisu/data/webui/WebUiRepository.kt
+index afc90013..4c9f41d0 100644
+--- a/manager/app/src/main/java/com/resukisu/resukisu/data/webui/WebUiRepository.kt
++++ b/manager/app/src/main/java/com/resukisu/resukisu/data/webui/WebUiRepository.kt
+@@ -2,6 +2,7 @@ package com.resukisu.resukisu.data.webui
+ 
+ import com.resukisu.resukisu.data.shell.KsuCliRepository
+ import com.resukisu.resukisu.domain.model.WebUiCommandResult
++import com.resukisu.resukisu.domain.model.WebUiModuleInfo
+ import com.resukisu.resukisu.domain.model.WebUiProcess
+ import com.topjohnwu.superuser.CallbackList
+ import com.topjohnwu.superuser.Shell
+@@ -29,6 +30,16 @@ class WebUiRepository(
+ 
+     fun listModules(): String = ksuCliRepository.listModules()
+ 
++    fun getModuleInfo(moduleId: String): WebUiModuleInfo? =
++        ksuCliRepository.withNewRootShell(globalMnt = true) {
++            val rootShell = this
++            readWebUiModuleInfo(
++                moduleId = moduleId,
++                resolveFile = { path -> SuFile(path).apply { shell = rootShell } },
++                openFile = { file -> SuFileInputStream.open(file) },
++            )
++        }
++
+     fun openFile(path: String) = runCatching {
+         val file = SuFile(path).apply { shell = ksuCliRepository.createRootShell(true) }
+         SuFileInputStream.open(file)
+diff --git a/manager/app/src/main/java/com/resukisu/resukisu/domain/model/WebUiModuleInfo.kt b/manager/app/src/main/java/com/resukisu/resukisu/domain/model/WebUiModuleInfo.kt
+new file mode 100644
+index 00000000..917518bc
+--- /dev/null
++++ b/manager/app/src/main/java/com/resukisu/resukisu/domain/model/WebUiModuleInfo.kt
+@@ -0,0 +1,8 @@
++package com.resukisu.resukisu.domain.model
++
++data class WebUiModuleInfo(
++    val name: String,
++    val enabled: Boolean,
++    val remove: Boolean,
++    val hasWebUi: Boolean,
++)
+diff --git a/manager/app/src/main/java/com/resukisu/resukisu/ui/MainActivity.kt b/manager/app/src/main/java/com/resukisu/resukisu/ui/MainActivity.kt
+index b2429eb1..3bbc088c 100644
+--- a/manager/app/src/main/java/com/resukisu/resukisu/ui/MainActivity.kt
++++ b/manager/app/src/main/java/com/resukisu/resukisu/ui/MainActivity.kt
+@@ -78,10 +78,11 @@ class MainActivity : ComponentActivity() {
+             super.onCreate(savedInstanceState)
+ 
+             splashScreen.setKeepOnScreenCondition {
+-                shouldKeepStartupSplash(
+-                    startupState = startupState.value,
+-                    homeInitialDataLoaded = homeViewModel.homeStateRepository.state.value.isInitialDataLoaded,
+-                )
++                when (startupState.value) {
++                    StartupState.Loading -> true
++                    StartupState.Ready -> false
++                    is StartupState.Failed -> false
++                }
+             }
+ 
+             lifecycleScope.launch { ensureManagerInstalled() }
+diff --git a/manager/app/src/main/java/com/resukisu/resukisu/ui/StartupSplashGate.kt b/manager/app/src/main/java/com/resukisu/resukisu/ui/StartupSplashGate.kt
+deleted file mode 100644
+index 8a489283..00000000
+--- a/manager/app/src/main/java/com/resukisu/resukisu/ui/StartupSplashGate.kt
++++ /dev/null
+@@ -1,12 +0,0 @@
+-package com.resukisu.resukisu.ui
+-
+-import com.resukisu.resukisu.domain.model.StartupState
+-
+-internal fun shouldKeepStartupSplash(
+-    startupState: StartupState,
+-    homeInitialDataLoaded: Boolean,
+-): Boolean = when (startupState) {
+-    StartupState.Loading -> true
+-    StartupState.Ready -> !homeInitialDataLoaded
+-    is StartupState.Failed -> false
+-}
+diff --git a/manager/app/src/main/java/com/resukisu/resukisu/ui/webui/WebUIActivity.kt b/manager/app/src/main/java/com/resukisu/resukisu/ui/webui/WebUIActivity.kt
+index 890488a0..4dbf226c 100644
+--- a/manager/app/src/main/java/com/resukisu/resukisu/ui/webui/WebUIActivity.kt
++++ b/manager/app/src/main/java/com/resukisu/resukisu/ui/webui/WebUIActivity.kt
+@@ -26,7 +26,6 @@ import com.resukisu.resukisu.data.packageinfo.AppIconDataSource
+ import com.resukisu.resukisu.data.packageinfo.InstalledPackageRepository
+ import com.resukisu.resukisu.data.webui.WebUiRepository
+ import com.resukisu.resukisu.ui.theme.KernelSUTheme
+-import com.resukisu.resukisu.ui.viewmodel.ModuleViewModel
+ import com.resukisu.resukisu.ui.viewmodel.SuperUserViewModel
+ import org.koin.compose.koinInject
+ import org.koin.compose.viewmodel.koinViewModel
+@@ -58,7 +57,6 @@ class WebUIActivity : ComponentActivity() {
+ private fun MainContent(activity: ComponentActivity, onFinish: () -> Unit) {
+     val moduleId = remember { activity.intent.getStringExtra("id") }
+     val webUIState = remember { WebUIState() }
+-    val moduleViewModel = koinViewModel<ModuleViewModel>()
+     val superUserViewModel = koinViewModel<SuperUserViewModel>()
+     val settingsRepository = koinInject<AppSettingsRepository>()
+     val packageRepository = koinInject<InstalledPackageRepository>()
+@@ -77,7 +75,6 @@ private fun MainContent(activity: ComponentActivity, onFinish: () -> Unit) {
+             activity,
+             moduleId,
+             webUIState,
+-            moduleViewModel,
+             superUserViewModel,
+             settingsRepository,
+             packageRepository,
+diff --git a/manager/app/src/main/java/com/resukisu/resukisu/ui/webui/WebViewHelper.kt b/manager/app/src/main/java/com/resukisu/resukisu/ui/webui/WebViewHelper.kt
+index f9cff5e5..a1ba4f0f 100644
+--- a/manager/app/src/main/java/com/resukisu/resukisu/ui/webui/WebViewHelper.kt
++++ b/manager/app/src/main/java/com/resukisu/resukisu/ui/webui/WebViewHelper.kt
+@@ -22,21 +22,14 @@ import com.resukisu.resukisu.data.AppSettingsRepository
+ import com.resukisu.resukisu.data.packageinfo.AppIconDataSource
+ import com.resukisu.resukisu.data.packageinfo.InstalledPackageRepository
+ import com.resukisu.resukisu.data.webui.WebUiRepository
+-import com.resukisu.resukisu.ui.viewmodel.ModuleUiAction
+-import com.resukisu.resukisu.ui.viewmodel.ModuleUiEvent
+-import com.resukisu.resukisu.ui.viewmodel.ModuleViewModel
+ import com.resukisu.resukisu.ui.viewmodel.SuperUserUiAction
+ import com.resukisu.resukisu.ui.viewmodel.SuperUserViewModel
+-import kotlinx.coroutines.CoroutineStart
++import kotlinx.coroutines.CancellationException
+ import kotlinx.coroutines.Dispatchers
+-import kotlinx.coroutines.async
+-import kotlinx.coroutines.flow.first
+ import kotlinx.coroutines.withContext
+-import kotlinx.coroutines.withTimeoutOrNull
+ import java.io.ByteArrayInputStream
+ import java.io.ByteArrayOutputStream
+ import java.io.File
+-import kotlin.time.Duration.Companion.milliseconds
+ 
+ 
+ @SuppressLint("SetJavaScriptEnabled")
+@@ -44,7 +37,6 @@ internal suspend fun prepareWebView(
+     activity: Activity,
+     moduleId: String,
+     webUIState: WebUIState,
+-    moduleViewModel: ModuleViewModel,
+     superUserViewModel: SuperUserViewModel,
+     settingsRepository: AppSettingsRepository,
+     packageRepository: InstalledPackageRepository,
+@@ -53,37 +45,18 @@ internal suspend fun prepareWebView(
+     colorsCssProvider: () -> String,
+ ) {
+     withContext(Dispatchers.IO) {
+-        val refreshEvent = async(start = CoroutineStart.UNDISPATCHED) {
+-            moduleViewModel.events.first { event ->
+-                event is ModuleUiEvent.RefreshCompleted || event is ModuleUiEvent.Error
+-            }
+-        }
+-        moduleViewModel.dispatch(ModuleUiAction.Refresh())
+-        when (val event = withTimeoutOrNull(30_000L.milliseconds) { refreshEvent.await() }) {
+-            is ModuleUiEvent.Error -> {
+-                withContext(Dispatchers.Main) {
+-                    webUIState.uiEvent = WebUIEvent.Error(
+-                        activity.getString(R.string.module_unavailable, event.message),
+-                    )
+-                }
+-                return@withContext
+-            }
+-
+-            null -> {
+-                withContext(Dispatchers.Main) {
+-                    webUIState.uiEvent = WebUIEvent.Error(
+-                        activity.getString(R.string.module_unavailable, moduleId),
+-                    )
+-                }
+-                return@withContext
++        val moduleInfo = try {
++            webUiRepository.getModuleInfo(moduleId)
++        } catch (error: Exception) {
++            if (error is CancellationException) throw error
++            withContext(Dispatchers.Main) {
++                webUIState.uiEvent = WebUIEvent.Error(
++                    activity.getString(R.string.module_unavailable, moduleId),
++                )
+             }
+-
+-            else -> Unit
++            return@withContext
+         }
+ 
+-        val moduleInfo =
+-            moduleViewModel.uiState.value.moduleList.find { info -> info.id == moduleId }
+-
+         if (moduleInfo == null) {
+             withContext(Dispatchers.Main) {
+                 webUIState.uiEvent = WebUIEvent.Error(activity.getString(R.string.no_such_module, moduleId))
+@@ -98,13 +71,13 @@ internal suspend fun prepareWebView(
+             return@withContext
+         }
+ 
+-        webUIState.moduleName = moduleInfo.name
+-        webUIState.modDir = "/data/adb/modules/${moduleId}"
+-
+         if (packageRepository.packages.value.isEmpty()) {
+             superUserViewModel.dispatch(SuperUserUiAction.Refresh)
+         }
+         withContext(Dispatchers.Main) {
++            webUIState.moduleName = moduleInfo.name
++            webUIState.modDir = "/data/adb/modules/$moduleId"
++
+             if (Build.VERSION.SDK_INT < Build.VERSION_CODES.TIRAMISU) {
+                 @Suppress("DEPRECATION")
+                 activity.setTaskDescription(ActivityManager.TaskDescription("KernelSU - ${moduleInfo.name}"))

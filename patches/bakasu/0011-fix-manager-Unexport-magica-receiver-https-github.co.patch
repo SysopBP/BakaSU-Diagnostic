@@ -1,0 +1,26 @@
+From 43f88b21c589887766c168c5a623c698ed5dbe46 Mon Sep 17 00:00:00 2001
+From: Wang Han <416810799@qq.com>
+Date: Wed, 23 Sep 2026 08:40:25 +0800
+Subject: [PATCH 11/12] fix(manager): Unexport magica receiver
+ (https://github.com/tiann/KernelSU/pull/3747)
+
+[cherry-picked upstream commit https://github.com/tiann/KernelSU/commit/449436dd56e4abb075f7b53fb5b2b33ff3830dd2]
+
+Signed-off-by: luyanci <luyancib@qq.com>
+---
+ manager/app/src/main/AndroidManifest.xml | 2 +-
+ 1 file changed, 1 insertion(+), 1 deletion(-)
+
+diff --git a/manager/app/src/main/AndroidManifest.xml b/manager/app/src/main/AndroidManifest.xml
+index beb0e7b2..c2403eed 100644
+--- a/manager/app/src/main/AndroidManifest.xml
++++ b/manager/app/src/main/AndroidManifest.xml
+@@ -142,7 +142,7 @@
+             android:name=".magica.BootCompletedReceiver"
+             android:directBootAware="true"
+             android:enabled="false"
+-            android:exported="true">
++            android:exported="false">
+             <intent-filter>
+                 <action android:name="android.intent.action.LOCKED_BOOT_COMPLETED" />
+                 <action android:name="android.intent.action.BOOT_COMPLETED" />

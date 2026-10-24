@@ -10,6 +10,8 @@ on:
       - 'scripts/*soft-reboot-parser.py'
       - 'tests/service-list-parser.rs'
       - 'vendor/**'
+      - 'patches/bakasu/**'
+      - 'scripts/apply-upstream-series.py'
       - '.github/workflows/build-samsung-bakasu.yml'
   pull_request:
     branches: [main, 'feat/samsung-jailbreak']
@@ -72,12 +74,7 @@ jobs:
           set -euo pipefail
           git clone https://github.com/Baka-SU/BakaSU.git upstream
           git -C upstream checkout --detach "$BAKASU_REF"
-          # Isolated upstream security/stability candidate commits; abort on conflicts.
-          git -C upstream config user.name "KitsuSU CI"
-          git -C upstream config user.email "ci@users.noreply.github.com"
-          for commit in ba8cfa502e 969de3d0ce 648144087e d7260ca1e5; do
-            git -C upstream cherry-pick "$commit" || { git -C upstream cherry-pick --abort; exit 1; }
-          done
+          python3 fork/scripts/apply-upstream-series.py --source upstream
           git config --global --add safe.directory "$GITHUB_WORKSPACE/upstream"
           cp fork/vendor/kernel/compat/* upstream/kernel/compat/
           cd upstream
@@ -121,12 +118,7 @@ jobs:
           set -euo pipefail
           git clone https://github.com/Baka-SU/BakaSU.git upstream
           git -C upstream checkout --detach "$BAKASU_REF"
-          # Isolated upstream security/stability candidate commits; abort on conflicts.
-          git -C upstream config user.name "KitsuSU CI"
-          git -C upstream config user.email "ci@users.noreply.github.com"
-          for commit in ba8cfa502e 969de3d0ce 648144087e d7260ca1e5; do
-            git -C upstream cherry-pick "$commit" || { git -C upstream cherry-pick --abort; exit 1; }
-          done
+          python3 fork/scripts/apply-upstream-series.py --source upstream
           cp fork/vendor/kernel/compat/* upstream/kernel/compat/
           cd upstream
           python3 ../fork/scripts/apply-samsung-jailbreak.py
@@ -189,12 +181,7 @@ jobs:
         run: |
           git clone https://github.com/Baka-SU/BakaSU.git upstream
           git -C upstream checkout --detach "$BAKASU_REF"
-          # Isolated upstream security/stability candidate commits; abort on conflicts.
-          git -C upstream config user.name "KitsuSU CI"
-          git -C upstream config user.email "ci@users.noreply.github.com"
-          for commit in ba8cfa502e 969de3d0ce 648144087e d7260ca1e5; do
-            git -C upstream cherry-pick "$commit" || { git -C upstream cherry-pick --abort; exit 1; }
-          done
+          python3 fork/scripts/apply-upstream-series.py --source upstream
           cd upstream
           python3 ../fork/scripts/apply-samsung-manager.py
       - uses: actions/setup-java@v5
@@ -252,6 +239,7 @@ jobs:
             KitsuSU-samsung-arm64.apk.sha256
           if-no-files-found: error
   susfs-lkm:
+    if: github.ref != 'refs/heads/test/bakasu-upstream-sync-20261023'
     name: susfs_guard_lkm (${{ matrix.kmi }})
     runs-on: ubuntu-24.04
     timeout-minutes: 45
@@ -348,6 +336,7 @@ jobs:
         path: ${{ github.workspace }}/out/*.ko
         if-no-files-found: error
   susfs-tools:
+    if: github.ref != 'refs/heads/test/bakasu-upstream-sync-20261023'
     name: susfs loader
     runs-on: ubuntu-24.04
     timeout-minutes: 15
@@ -376,6 +365,7 @@ jobs:
         path: /tmp/susfs_insmod
         if-no-files-found: error
   susfs-module:
+    if: github.ref != 'refs/heads/test/bakasu-upstream-sync-20261023'
     name: susfs flashable module
     needs:
     - susfs-lkm

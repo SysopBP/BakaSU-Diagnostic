@@ -1,0 +1,79 @@
+From 8639ec19f2b9f921c89f2cbaa972c566a4f4e735 Mon Sep 17 00:00:00 2001
+From: Tools-cx-app <localhost.hutao@gmail.com>
+Date: Sat, 26 Sep 2026 14:22:38 +0800
+Subject: [PATCH 05/12] ksud: remove multithread analysing boot in slot_info
+
+Since memchr is already fast enough, multithread is no longer needed.
+---
+ userspace/ksud/src/android/susfs/slot_info.rs | 50 +++++++------------
+ 1 file changed, 17 insertions(+), 33 deletions(-)
+
+diff --git a/userspace/ksud/src/android/susfs/slot_info.rs b/userspace/ksud/src/android/susfs/slot_info.rs
+index c43fd1d0..26d87368 100644
+--- a/userspace/ksud/src/android/susfs/slot_info.rs
++++ b/userspace/ksud/src/android/susfs/slot_info.rs
+@@ -1,6 +1,5 @@
+ use std::{
+     path::{Path, PathBuf},
+-    sync::mpsc::channel,
+ };
+ 
+ use android_bootimg::parser::BootImage;
+@@ -20,40 +19,25 @@ struct SlotInfo {
+ 
+ pub fn show_slot_info_json() -> Result<()> {
+     log::debug!("Starting slot_info enumeration from /dev/block/by-name");
+-
+-    let (send, recv) = channel::<SlotInfo>();
+-    let mut jobs = Vec::<std::thread::JoinHandle<_>>::new();
++    let mut result = Vec::new();
+ 
+     for (slot_name, slot_path) in list_boot_slots() {
+-        let send = send.clone();
+-        jobs.push(
+-            std::thread::Builder::new()
+-                .name(format!("analyze_{slot_name}"))
+-                .spawn(move || {
+-                    log::debug!("Processing slot: {} at {}", slot_name, slot_path.display());
+-
+-                    match extract_slot_kernel_info(&slot_path) {
+-                        Ok((uname, build_time)) => {
+-                            log::info!("Successfully extracted info from {}", slot_name);
+-                            log::debug!("  build_time: {}", build_time);
+-                            let _ = send.send(SlotInfo {
+-                                slot_name,
+-                                uname,
+-                                build_time,
+-                            });
+-                        }
+-                        Err(e) => {
+-                            log::warn!("Failed to extract info from {}: {}", slot_name, e);
+-                        }
+-                    }
+-                })?,
+-        );
+-    }
+-
+-    let mut result = Vec::new();
+-    for job in jobs {
+-        job.join().unwrap();
+-        result.push(recv.recv()?);
++        log::debug!("Processing slot: {} at {}", slot_name, slot_path.display());
++
++        match extract_slot_kernel_info(&slot_path) {
++            Ok((uname, build_time)) => {
++                log::info!("Successfully extracted info from {}", slot_name);
++                log::debug!("  build_time: {}", build_time);
++                result.push(SlotInfo {
++                    slot_name,
++                    uname,
++                    build_time,
++                });
++            }
++            Err(e) => {
++                log::warn!("Failed to extract info from {}: {}", slot_name, e);
++            }
++        }
+     }
+ 
+     println!("{}", serde_json::to_string(&result)?);

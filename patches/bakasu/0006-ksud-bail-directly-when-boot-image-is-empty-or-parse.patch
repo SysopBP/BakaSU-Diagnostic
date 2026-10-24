@@ -1,0 +1,31 @@
+From 4f7519c65179b057d2616a8c5fd1b8409f5744e5 Mon Sep 17 00:00:00 2001
+From: Tools-cx-app <localhost.hutao@gmail.com>
+Date: Sat, 26 Sep 2026 21:05:41 +0800
+Subject: [PATCH 06/12] ksud: bail directly when boot image is empty or parse
+ failed
+
+---
+ userspace/ksud/src/boot_patch.rs | 9 ++++++---
+ 1 file changed, 6 insertions(+), 3 deletions(-)
+
+diff --git a/userspace/ksud/src/boot_patch.rs b/userspace/ksud/src/boot_patch.rs
+index a2daaf20..21f0bd9a 100644
+--- a/userspace/ksud/src/boot_patch.rs
++++ b/userspace/ksud/src/boot_patch.rs
+@@ -661,10 +661,13 @@ pub fn patch(args: BootPatchArgs) -> Result<()> {
+         println!("- Parsing boot image");
+ 
+         let boot_image_data = map_file(&boot_image_file)?;
+-        let boot_image = if ramdisk {
+-            BootImage::parse_raw_ramdisk(&boot_image_data)?
++        let boot_image = match if ramdisk {
++            BootImage::parse_raw_ramdisk(&boot_image_data)
+         } else {
+-            BootImage::parse(&boot_image_data)?
++            BootImage::parse(&boot_image_data)
++        } {
++            Ok(b) => b,
++            Err(e) => bail!("Failed to parse boot iamge, boot image maybe is empty, {e}"),
+         };
+         enforce_bootimage_version(&boot_image)?;
+ 
